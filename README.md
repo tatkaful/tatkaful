@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html lang="en" class="scroll-smooth overflow-x-hidden">
 <head>
     <meta charset="UTF-8">
