@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tatka Ful | Premium Floral Concepts</title>
-    <!-- Tailwind CSS Engine -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -18,10 +17,8 @@
             }
         }
     </script>
-    <!-- Google Fonts Import for Luxury Appeal -->
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Custom CSS Variables and Glassmorphism Styles -->
     <style>
         :root {
             --emerald-dark: #022c22;
@@ -103,9 +100,6 @@
 </head>
 <body class="text-gray-800 antialiased selection:bg-[#064e3b] selection:text-white">
 
-    <!-- ==========================================
-         LOADER PAGE (Elegant Custom Welcome Screen)
-         ========================================== -->
     <div id="loader-screen" class="fixed inset-0 z-50 bg-[#fcfbf9] flex flex-col items-center justify-center transition-all duration-700">
         <div class="flex flex-col items-center space-y-4">
             <svg class="animate-spin h-10 w-10 text-[#064e3b]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -117,16 +111,9 @@
         </div>
     </div>
 
-    <!-- ==========================================
-         MAIN WRAPPER FOR BOTH CUSTOMER & ADMIN VIEWS
-         ========================================== -->
     <div id="app-root" class="min-h-screen flex flex-col">
-        <!-- Content gets rendered here dynamically using JavaScript -->
-    </div>
+        </div>
 
-    <!-- ==========================================
-         JAVASCRIPT PERSISTENCE & ARCHITECTURE
-         ========================================== -->
     <script>
         // --- 1. CLOUD SYNC (Firebase Realtime Database — shared across ALL devices) ---
         // The actual Firebase connection lives in the <script type="module"> block near
@@ -220,7 +207,6 @@
                 : visibleBouquets.filter(b => b.category === state.selectedCategory);
 
             container.innerHTML = `
-                <!-- Navigation -->
                 <nav class="fixed w-full top-0 z-40 glass-header">
                     <div class="max-w-7xl mx-auto px-6 h-24 flex items-center justify-between">
                         <div class="flex items-center gap-4 cursor-pointer group" onclick="window.scrollTo({top:0, behavior:'smooth'})">
@@ -236,7 +222,6 @@
                     </div>
                 </nav>
 
-                <!-- Hero Section with Premium Watercolor Canvas Backdrop -->
                 <section class="relative pt-32 pb-24 md:pt-48 md:pb-36 px-6 flex items-center justify-center min-h-[75vh] overflow-hidden">
                     <div class="absolute inset-0 z-0">
                         <img src="${state.settings.banner || 'IMG_0255.png'}" onerror="this.src='IMG_0255.png'" alt="Luxury Floral Banner" class="w-full h-full object-cover opacity-25 scale-105" />
@@ -260,7 +245,6 @@
                     </div>
                 </section>
 
-                <!-- Pills Collections Navigation (Sticky Interface) -->
                 <section id="collection" class="px-6 py-6 sticky top-24 glass-header z-30 shadow-sm border-t border-gray-100">
                     <div class="max-w-7xl mx-auto flex gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x">
                         <button onclick="setCategoryFilter('All')" class="snap-start whitespace-nowrap px-8 py-3 rounded-full transition-all duration-500 text-sm font-semibold tracking-wider uppercase ${state.selectedCategory === 'All' ? 'bg-[#022c22] text-white shadow-md' : 'bg-transparent text-gray-500 hover:text-[#064e3b] hover:bg-gray-100'}">
@@ -274,7 +258,6 @@
                     </div>
                 </section>
 
-                <!-- Floral Gallery Layout -->
                 <section class="px-6 py-24 max-w-7xl mx-auto min-h-[50vh]">
                     ${displayedBouquets.length === 0 ? `
                         <div class="text-center py-32 luxury-card rounded-[3rem] animate-fade-up">
@@ -313,7 +296,6 @@
                     `}
                 </section>
 
-                <!-- 100% Working Pulse Action (Floating WhatsApp) -->
                 <div class="fixed bottom-6 right-6 z-40 flex flex-col gap-4">
                     <a href="https://wa.me/${formatWhatsApp(state.settings.whatsapp)}" target="_blank" rel="noreferrer" class="relative w-16 h-16 bg-[#25D366] text-white rounded-full flex items-center justify-center hover:scale-105 transition-transform shadow-[0_10px_30px_rgba(37,211,102,0.4)]">
                         <span class="absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-40 animate-ping"></span>
@@ -321,7 +303,6 @@
                     </a>
                 </div>
 
-                <!-- Footer System with Hidden Entrance Integration -->
                 <footer class="bg-white border-t border-gray-100 pt-24 pb-12 px-6">
                     <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12 text-center md:text-left">
                         <div class="flex flex-col items-center md:items-start max-w-sm">
@@ -358,7 +339,6 @@
                     </div>
                 </footer>
 
-                <!-- Render Detail Modal if selected -->
                 <div id="modal-container"></div>
             `;
 
@@ -414,7 +394,6 @@
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
 
-                        <!-- Gallery View Panel -->
                         <div class="w-full md:w-1/2 bg-[#fcfbf9] h-[50vh] md:h-auto overflow-y-auto snap-y snap-mandatory scrollbar-hide relative">
                             ${bouquet.images && bouquet.images.length > 0 ? bouquet.images.map((img, i) => `
                                 <div class="w-full h-full min-h-[50vh] md:min-h-full snap-center relative">
@@ -430,7 +409,6 @@
                             ` : ''}
                         </div>
 
-                        <!-- Details Section and CTAs -->
                         <div class="w-full md:w-1/2 p-8 md:p-16 flex flex-col h-[50vh] md:h-auto overflow-y-auto bg-white">
                             <p class="text-[11px] font-bold tracking-[0.3em] text-[#064e3b] uppercase mb-4">${bouquet.category}</p>
                             <h2 class="text-4xl md:text-5xl font-serif text-gray-900 mb-6 leading-tight">${bouquet.name}</h2>
@@ -505,7 +483,6 @@
             container.innerHTML = `
                 <div class="min-h-screen bg-[#fcfbf9] flex flex-col md:flex-row font-sans text-gray-800">
                     
-                    <!-- Sidebar Navigation -->
                     <aside class="w-full md:w-80 bg-white border-r border-gray-100 flex flex-col shrink-0 z-10 shadow-sm">
                         <div class="p-8 border-b border-gray-50 flex items-center gap-4">
                             <img src="${state.settings.logo || 'IMG_0254.png'}" onerror="this.src='IMG_0254.png'" alt="Logo" class="w-14 h-14 rounded-full shadow-sm object-cover" />
@@ -529,10 +506,8 @@
                         </div>
                     </aside>
 
-                    <!-- Main Dynamic Area -->
                     <main id="admin-main-area" class="flex-1 p-6 md:p-12 overflow-y-auto">
-                        <!-- Dashboard components go here -->
-                    </main>
+                        </main>
                 </div>
             `;
 
@@ -578,7 +553,6 @@
                         </button>
                     </div>
 
-                    <!-- Dashboard Stats -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
                         <div class="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
                             <p class="text-xs text-gray-400 font-bold tracking-[0.2em] uppercase mb-3">Total Designs</p>
@@ -594,7 +568,6 @@
                         </div>
                     </div>
 
-                    <!-- Table List -->
                     <div class="bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-sm">
                         <table class="w-full text-left border-collapse">
                             <thead>
@@ -654,7 +627,6 @@
                     </div>
 
                     <form id="bouquet-form" class="space-y-10">
-                        <!-- Direct Device Upload Framework with compression -->
                         <div class="bg-[#fcfbf9] p-8 rounded-[2rem] border border-gray-100">
                             <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-6 uppercase">Gallery Images (Max 5)</label>
                             <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -822,7 +794,6 @@
                     
                     <div class="bg-white p-10 md:p-14 border border-gray-100 rounded-[3rem] shadow-sm space-y-14">
                         
-                        <!-- Logo & Banner Asset Customizer -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
                             <div class="bg-gray-50 rounded-[2rem] p-8 text-center border border-gray-100">
                                 <p class="text-xs font-bold tracking-[0.2em] text-gray-400 uppercase mb-6">Studio Logo</p>
@@ -847,7 +818,6 @@
                             </div>
                         </div>
 
-                        <!-- Brand Slogans and Content -->
                         <form id="settings-form" class="space-y-8">
                             <div>
                                 <h3 class="text-2xl font-serif text-gray-900 mb-8 border-b border-gray-100 pb-4">Messaging</h3>
@@ -863,7 +833,6 @@
                                 </div>
                             </div>
 
-                            <!-- Integrated Contact CTAs -->
                             <div>
                                 <h3 class="text-2xl font-serif text-gray-900 mb-8 border-b border-gray-100 pb-4">Contacts</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -997,31 +966,25 @@
         };
     </script>
 
-    <!-- ==========================================
-         FIREBASE CLOUD SYNC — this is what makes changes
-         show on every device instead of just one.
-         👉 PASTE YOUR OWN PROJECT CONFIG BELOW 👈
-         ========================================== -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-analytics.js";
 
-        // 🔻🔻🔻 Replace this whole object with YOUR Firebase project's config 🔻🔻🔻
-        // Get it from: Firebase Console → ⚙️ Project settings → General tab →
-        // "Your apps" section → the </> (Web) app → "SDK setup and configuration"
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID",
-            appId: "YOUR_APP_ID"
+          apiKey: "AIzaSyAereTM0WIEvfWEI7x3tLCyuv7RK23FLF4",
+          authDomain: "tatka3056-d9c8d.firebaseapp.com",
+          databaseURL: "https://tatka3056-d9c8d-default-rtdb.firebaseio.com",
+          projectId: "tatka3056-d9c8d",
+          storageBucket: "tatka3056-d9c8d.firebasestorage.app",
+          messagingSenderId: "484843738326",
+          appId: "1:484843738326:web:ecac79b1ebffe98ebbe577",
+          measurementId: "G-NNLT4QZQEQ"
         };
-        // 🔺🔺🔺 Replace this whole object with YOUR Firebase project's config 🔺🔺🔺
 
         try {
             const fbApp = initializeApp(firebaseConfig);
+            const analytics = getAnalytics(fbApp);
             const db = getDatabase(fbApp);
 
             // Bridge functions the main app script (above) calls into
