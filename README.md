@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tatka Ful | Premium Floral Concepts</title>
+    <!-- Tailwind CSS Engine -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -17,13 +18,10 @@
             }
         }
     </script>
+    <!-- Google Fonts Import for Luxury Appeal -->
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
-
+    <!-- Custom CSS Variables and Glassmorphism Styles -->
     <style>
         :root {
             --emerald-dark: #022c22;
@@ -105,6 +103,9 @@
 </head>
 <body class="text-gray-800 antialiased selection:bg-[#064e3b] selection:text-white">
 
+    <!-- ==========================================
+         LOADER PAGE (Elegant Custom Welcome Screen)
+         ========================================== -->
     <div id="loader-screen" class="fixed inset-0 z-50 bg-[#fcfbf9] flex flex-col items-center justify-center transition-all duration-700">
         <div class="flex flex-col items-center space-y-4">
             <svg class="animate-spin h-10 w-10 text-[#064e3b]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -116,45 +117,44 @@
         </div>
     </div>
 
+    <!-- ==========================================
+         MAIN WRAPPER FOR BOTH CUSTOMER & ADMIN VIEWS
+         ========================================== -->
     <div id="app-root" class="min-h-screen flex flex-col">
-        </div>
+        <!-- Content gets rendered here dynamically using JavaScript -->
+    </div>
 
+    <!-- ==========================================
+         JAVASCRIPT PERSISTENCE & ARCHITECTURE
+         ========================================== -->
     <script>
-        // --- 1. FIREBASE INITIALIZATION ---
-        // REPLACE THIS WITH YOUR FIREBASE CONFIG
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        const storage = firebase.storage();
+        // --- 1. CLOUD SYNC (Firebase Realtime Database — shared across ALL devices) ---
+        // The actual Firebase connection lives in the <script type="module"> block near
+        // the bottom of this file (window.__firebaseSetPath / window.__firebaseOnValue).
+        // dbSet() just forwards to it so nothing else in this file has to change.
+        async function dbSet(key, val) {
+            return window.__firebaseSetPath(key, val);
+        }
 
         // --- 2. GLOBAL SYSTEM STATE ---
         let state = {
-            currentView: 'home',
+            currentView: 'home', // 'home' | 'admin_login' | 'admin_dashboard'
             selectedCategory: 'All',
             selectedBouquet: null,
             bouquets: [],
             categories: ['Rose Bouquet', 'Sunflower Bouquet', 'Lily Bouquet', 'Mixed Bouquet', 'Birthday', 'Wedding'],
             settings: {
-                logo: 'IMG_0254.png',
-                banner: 'IMG_0255.png',
+                logo: 'IMG_0254.png', // Default high-res watercolor logo
+                banner: 'IMG_0255.png', // Default horizontal panoramic banner
                 phone: '01410619501',
                 whatsapp: '01410619501',
                 instagram: 'https://instagram.com/tatka_ful',
                 tiktok: 'https://tiktok.com/@tatka.ful',
+                facebook: 'https://facebook.com/tatkaful',
                 heroSlogan: 'Elegance in Every Petal.',
                 heroDesc: 'Curating luxury floral masterpieces for your most precious memories. Exclusively hand-crafted with passion.'
             },
-            adminTab: 'bouquets',
+            adminTab: 'bouquets', // 'bouquets' | 'settings'
             isAddingBouquet: false,
             editingId: null,
             formData: {
@@ -197,19 +197,10 @@
             });
         }
 
-        // Upload Base64 Data URL to Firebase Storage and return Download URL
-        async function uploadToFirebaseStorage(dataUrl) {
-            const response = await fetch(dataUrl);
-            const blob = await response.blob();
-            const filename = 'images/' + Date.now() + '_' + Math.random().toString(36).substring(7) + '.jpg';
-            const storageRef = storage.ref(filename);
-            await storageRef.put(blob);
-            return await storageRef.getDownloadURL();
-        }
-
         // --- 4. VIEW RENDERING PIPELINE ---
         async function updateView() {
             const root = document.getElementById('app-root');
+            
             if (state.currentView === 'home') {
                 renderHome(root);
             } else if (state.currentView === 'admin_login') {
@@ -217,13 +208,6 @@
             } else if (state.currentView === 'admin_dashboard') {
                 renderAdminDashboard(root);
             }
-        }
-
-        function adminLogout() {
-            auth.signOut().then(() => {
-                state.currentView = 'home';
-                updateView();
-            });
         }
 
         // ==========================================
@@ -234,11 +218,13 @@
             const displayedBouquets = state.selectedCategory === 'All' 
                 ? visibleBouquets 
                 : visibleBouquets.filter(b => b.category === state.selectedCategory);
+
             container.innerHTML = `
+                <!-- Navigation -->
                 <nav class="fixed w-full top-0 z-40 glass-header">
                     <div class="max-w-7xl mx-auto px-6 h-24 flex items-center justify-between">
                         <div class="flex items-center gap-4 cursor-pointer group" onclick="window.scrollTo({top:0, behavior:'smooth'})">
-                            <img loading="lazy" src="${state.settings.logo || 'IMG_0254.png'}" onerror="this.src='IMG_0254.png'" alt="Tatka Ful Logo" class="w-14 h-14 rounded-full object-cover shadow-sm group-hover:scale-105 transition-transform duration-500" />
+                            <img src="${state.settings.logo || 'IMG_0254.png'}" onerror="this.src='IMG_0254.png'" alt="Tatka Ful Logo" class="w-14 h-14 rounded-full object-cover shadow-sm group-hover:scale-105 transition-transform duration-500" />
                             <span class="text-2xl font-serif font-semibold text-gray-900 tracking-wide group-hover:text-[#064e3b] transition-colors">Tatka Ful</span>
                         </div>
                         <div class="hidden md:flex items-center gap-10 text-sm font-semibold tracking-widest uppercase text-gray-500">
@@ -250,6 +236,7 @@
                     </div>
                 </nav>
 
+                <!-- Hero Section with Premium Watercolor Canvas Backdrop -->
                 <section class="relative pt-32 pb-24 md:pt-48 md:pb-36 px-6 flex items-center justify-center min-h-[75vh] overflow-hidden">
                     <div class="absolute inset-0 z-0">
                         <img src="${state.settings.banner || 'IMG_0255.png'}" onerror="this.src='IMG_0255.png'" alt="Luxury Floral Banner" class="w-full h-full object-cover opacity-25 scale-105" />
@@ -273,6 +260,7 @@
                     </div>
                 </section>
 
+                <!-- Pills Collections Navigation (Sticky Interface) -->
                 <section id="collection" class="px-6 py-6 sticky top-24 glass-header z-30 shadow-sm border-t border-gray-100">
                     <div class="max-w-7xl mx-auto flex gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x">
                         <button onclick="setCategoryFilter('All')" class="snap-start whitespace-nowrap px-8 py-3 rounded-full transition-all duration-500 text-sm font-semibold tracking-wider uppercase ${state.selectedCategory === 'All' ? 'bg-[#022c22] text-white shadow-md' : 'bg-transparent text-gray-500 hover:text-[#064e3b] hover:bg-gray-100'}">
@@ -286,6 +274,7 @@
                     </div>
                 </section>
 
+                <!-- Floral Gallery Layout -->
                 <section class="px-6 py-24 max-w-7xl mx-auto min-h-[50vh]">
                     ${displayedBouquets.length === 0 ? `
                         <div class="text-center py-32 luxury-card rounded-[3rem] animate-fade-up">
@@ -301,7 +290,7 @@
                                 <div class="group cursor-pointer flex flex-col animate-fade-up" style="animation-delay: ${index * 0.05}s" onclick="openDetailModal('${bouquet.id}')">
                                     <div class="relative aspect-[4/5] rounded-[2rem] overflow-hidden luxury-card mb-6">
                                         ${bouquet.images && bouquet.images.length > 0 ? `
-                                            <img loading="lazy" src="${bouquet.images[0]}" alt="${bouquet.name}" class="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110" />
+                                            <img src="${bouquet.images[0]}" alt="${bouquet.name}" class="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110" />
                                         ` : `
                                             <div class="w-full h-full flex items-center justify-center bg-gray-50 text-gray-300">No Image Preview</div>
                                         `}
@@ -324,6 +313,7 @@
                     `}
                 </section>
 
+                <!-- 100% Working Pulse Action (Floating WhatsApp) -->
                 <div class="fixed bottom-6 right-6 z-40 flex flex-col gap-4">
                     <a href="https://wa.me/${formatWhatsApp(state.settings.whatsapp)}" target="_blank" rel="noreferrer" class="relative w-16 h-16 bg-[#25D366] text-white rounded-full flex items-center justify-center hover:scale-105 transition-transform shadow-[0_10px_30px_rgba(37,211,102,0.4)]">
                         <span class="absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-40 animate-ping"></span>
@@ -331,10 +321,11 @@
                     </a>
                 </div>
 
+                <!-- Footer System with Hidden Entrance Integration -->
                 <footer class="bg-white border-t border-gray-100 pt-24 pb-12 px-6">
                     <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12 text-center md:text-left">
                         <div class="flex flex-col items-center md:items-start max-w-sm">
-                            <img loading="lazy" src="${state.settings.logo || 'IMG_0254.png'}" onerror="this.src='IMG_0254.png'" alt="Logo" class="w-20 h-20 rounded-full mb-6 shadow-sm object-cover" />
+                            <img src="${state.settings.logo || 'IMG_0254.png'}" onerror="this.src='IMG_0254.png'" alt="Logo" class="w-20 h-20 rounded-full mb-6 shadow-sm object-cover" />
                             <h3 class="font-serif text-3xl text-gray-900 mb-4">Tatka Ful</h3>
                             <p class="text-gray-500 text-sm leading-relaxed font-light">
                                 Nature's finest expressions of love, premium flower concepts curated flawlessly.
@@ -346,6 +337,14 @@
                                 <a href="${state.settings.instagram}" target="_blank" rel="noreferrer" class="w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:text-[#064e3b] hover:border-[#064e3b] transition-all">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                                 </a>
+                                ${state.settings.facebook ? `
+                                <a href="${state.settings.facebook}" target="_blank" rel="noreferrer" class="w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:text-[#064e3b] hover:border-[#064e3b] transition-all">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M14 13.5h2.5l.5-3H14V8.5c0-.75.25-1.5 1.5-1.5H17V4.5c-.5 0-1.5-.1-2.5-.1-2.5 0-4 1.5-4 4.5V10.5H8v3h2.5V21h3.5v-7.5z"></path></svg>
+                                </a>` : ''}
+                                ${state.settings.tiktok ? `
+                                <a href="${state.settings.tiktok}" target="_blank" rel="noreferrer" class="w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:text-[#064e3b] hover:border-[#064e3b] transition-all">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                </a>` : ''}
                                 <a href="tel:${state.settings.phone}" class="w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:text-[#064e3b] hover:border-[#064e3b] transition-all">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
                                 </a>
@@ -359,13 +358,16 @@
                     </div>
                 </footer>
 
+                <!-- Render Detail Modal if selected -->
                 <div id="modal-container"></div>
             `;
+
             // Double Click dynamic listener definition
             document.getElementById('secret-trigger').addEventListener('dblclick', () => {
                 state.currentView = 'admin_login';
                 updateView();
             });
+
             // If selected bouquet is open
             if (state.selectedBouquet) {
                 renderDetailModal();
@@ -412,10 +414,11 @@
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
 
+                        <!-- Gallery View Panel -->
                         <div class="w-full md:w-1/2 bg-[#fcfbf9] h-[50vh] md:h-auto overflow-y-auto snap-y snap-mandatory scrollbar-hide relative">
                             ${bouquet.images && bouquet.images.length > 0 ? bouquet.images.map((img, i) => `
                                 <div class="w-full h-full min-h-[50vh] md:min-h-full snap-center relative">
-                                    <img loading="lazy" src="${img}" alt="${bouquet.name} ${i+1}" class="w-full h-full object-cover" />
+                                    <img src="${img}" alt="${bouquet.name} ${i+1}" class="w-full h-full object-cover" />
                                 </div>
                             `).join('') : `
                                 <div class="w-full h-full flex items-center justify-center text-gray-300 font-light">No Gallery Images</div>
@@ -427,6 +430,7 @@
                             ` : ''}
                         </div>
 
+                        <!-- Details Section and CTAs -->
                         <div class="w-full md:w-1/2 p-8 md:p-16 flex flex-col h-[50vh] md:h-auto overflow-y-auto bg-white">
                             <p class="text-[11px] font-bold tracking-[0.3em] text-[#064e3b] uppercase mb-4">${bouquet.category}</p>
                             <h2 class="text-4xl md:text-5xl font-serif text-gray-900 mb-6 leading-tight">${bouquet.name}</h2>
@@ -480,18 +484,15 @@
                 </div>
             `;
 
-            document.getElementById('login-form').onsubmit = async (e) => {
+            document.getElementById('login-form').onsubmit = (e) => {
                 e.preventDefault();
                 const input = document.getElementById('passcode-input').value;
                 const error = document.getElementById('login-error');
-                
-                try {
-                    // Firebase Auth bridging admin login via predefined email and the input passcode
-                    await auth.signInWithEmailAndPassword('admin@tatkaful.com', input);
+                if (input === 'gym') {
                     state.currentView = 'admin_dashboard';
                     updateView();
-                } catch (err) {
-                    error.textContent = 'Invalid credentials';
+                } else {
+                    error.textContent = 'Invalid passcode';
                     error.classList.remove('hidden');
                 }
             };
@@ -504,6 +505,7 @@
             container.innerHTML = `
                 <div class="min-h-screen bg-[#fcfbf9] flex flex-col md:flex-row font-sans text-gray-800">
                     
+                    <!-- Sidebar Navigation -->
                     <aside class="w-full md:w-80 bg-white border-r border-gray-100 flex flex-col shrink-0 z-10 shadow-sm">
                         <div class="p-8 border-b border-gray-50 flex items-center gap-4">
                             <img src="${state.settings.logo || 'IMG_0254.png'}" onerror="this.src='IMG_0254.png'" alt="Logo" class="w-14 h-14 rounded-full shadow-sm object-cover" />
@@ -521,14 +523,16 @@
                             </button>
                         </div>
                         <div class="p-6">
-                            <button onclick="adminLogout()" class="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl bg-gray-50 text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all font-bold text-xs uppercase tracking-widest">
+                            <button onclick="state.currentView='home'; updateView();" class="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl bg-gray-50 text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all font-bold text-xs uppercase tracking-widest">
                                 Exit Studio
                             </button>
                         </div>
                     </aside>
 
+                    <!-- Main Dynamic Area -->
                     <main id="admin-main-area" class="flex-1 p-6 md:p-12 overflow-y-auto">
-                        </main>
+                        <!-- Dashboard components go here -->
+                    </main>
                 </div>
             `;
 
@@ -542,6 +546,7 @@
             renderAdminMainSection();
         }
 
+        // Render interior dashboard tabs
         function renderAdminMainSection() {
             const container = document.getElementById('admin-main-area');
             if (!container) return;
@@ -573,6 +578,7 @@
                         </button>
                     </div>
 
+                    <!-- Dashboard Stats -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
                         <div class="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
                             <p class="text-xs text-gray-400 font-bold tracking-[0.2em] uppercase mb-3">Total Designs</p>
@@ -588,6 +594,7 @@
                         </div>
                     </div>
 
+                    <!-- Table List -->
                     <div class="bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-sm">
                         <table class="w-full text-left border-collapse">
                             <thead>
@@ -647,6 +654,7 @@
                     </div>
 
                     <form id="bouquet-form" class="space-y-10">
+                        <!-- Direct Device Upload Framework with compression -->
                         <div class="bg-[#fcfbf9] p-8 rounded-[2rem] border border-gray-100">
                             <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-6 uppercase">Gallery Images (Max 5)</label>
                             <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -659,8 +667,8 @@
                                 ${state.formData.images.length < 5 ? `
                                     <label class="aspect-[4/5] rounded-2xl border-2 border-dashed border-gray-300 hover:border-[#064e3b] hover:bg-[#ecfdf5] transition-colors flex flex-col items-center justify-center cursor-pointer text-gray-400 hover:text-[#064e3b] bg-white">
                                         <svg class="w-8 h-8 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                                        <span class="text-[10px] font-bold tracking-widest uppercase">${state.isUploading ? 'Uploading...' : 'Upload File'}</span>
-                                        <input id="gallery-input" type="file" accept="image/*" multiple class="hidden" ${state.isUploading ? 'disabled' : ''} />
+                                        <span class="text-[10px] font-bold tracking-widest uppercase">${state.isUploading ? 'Compressing...' : 'Upload File'}</span>
+                                        <input id="gallery-input" type="file" accept="image/*" multiple class="hidden" />
                                     </label>
                                 ` : ''}
                             </div>
@@ -696,7 +704,7 @@
                         </div>
 
                         <div class="pt-10 border-t border-gray-100 flex justify-end">
-                            <button type="submit" ${state.isUploading ? 'disabled' : ''} class="premium-btn text-white px-12 py-5 rounded-full font-bold tracking-[0.2em] uppercase text-sm disabled:opacity-50">
+                            <button type="submit" class="premium-btn text-white px-12 py-5 rounded-full font-bold tracking-[0.2em] uppercase text-sm">
                                 ${state.editingId ? 'Save Updates' : 'Publish Design'}
                             </button>
                         </div>
@@ -704,7 +712,7 @@
                 </div>
             `;
 
-            // Firebase Storage Uploads on Input Change
+            // Hook direct file uploads on gallery input
             const fileInput = document.getElementById('gallery-input');
             if (fileInput) {
                 fileInput.onchange = async (e) => {
@@ -714,19 +722,14 @@
                         alert("Max 5 images allowed per bouquet.");
                         return;
                     }
-                    
                     state.isUploading = true;
-                    renderAdminMainSection(); 
+                    renderAdminMainSection(); // Refreshes to show upload loading status
                     
                     try {
-                        // Compress first, then upload to Firebase Storage
-                        const processedBase64 = await Promise.all(files.map(f => compressImage(f, 1000, 0.82)));
-                        const uploadedUrls = await Promise.all(processedBase64.map(b64 => uploadToFirebaseStorage(b64)));
-                        
-                        state.formData.images = [...state.formData.images, ...uploadedUrls].slice(0, 5);
+                        const processed = await Promise.all(files.map(f => compressImage(f, 1000, 0.82)));
+                        state.formData.images = [...state.formData.images, ...processed].slice(0, 5);
                     } catch (err) {
-                        alert("Error uploading images to Cloud Storage.");
-                        console.error(err);
+                        alert("Error uploading images.");
                     }
                     
                     state.isUploading = false;
@@ -734,32 +737,26 @@
                 };
             }
 
-            // Form Submit Controller - Saving to Firestore
+            // Form Submit Controller
             document.getElementById('bouquet-form').onsubmit = async (e) => {
                 e.preventDefault();
-                const bouquetData = {
-                    name: document.getElementById('form-name').value,
-                    category: document.getElementById('form-category').value,
-                    description: document.getElementById('form-desc').value,
-                    bestseller: document.getElementById('form-bestseller').checked,
-                    visible: document.getElementById('form-visible').checked,
-                    images: state.formData.images,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                };
+                state.formData.name = document.getElementById('form-name').value;
+                state.formData.category = document.getElementById('form-category').value;
+                state.formData.description = document.getElementById('form-desc').value;
+                state.formData.bestseller = document.getElementById('form-bestseller').checked;
+                state.formData.visible = document.getElementById('form-visible').checked;
 
-                try {
-                    if (state.editingId) {
-                        await db.collection('bouquets').doc(state.editingId).update(bouquetData);
-                    } else {
-                        bouquetData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                        await db.collection('bouquets').add(bouquetData);
-                    }
-                    state.isAddingBouquet = false;
-                    state.editingId = null;
-                } catch(err) {
-                    alert("Error saving to database.");
-                    console.error(err);
+                if (state.editingId) {
+                    state.bouquets = state.bouquets.map(b => b.id === state.editingId ? { ...state.formData, id: state.editingId } : b);
+                } else {
+                    state.bouquets = [{ ...state.formData, id: Date.now().toString() }, ...state.bouquets];
                 }
+
+                // Sync data directly to database
+                await dbSet('tf_bouquets_v3', state.bouquets);
+                state.isAddingBouquet = false;
+                state.editingId = null;
+                renderAdminMainSection();
             };
         }
 
@@ -800,15 +797,16 @@
 
         async function deleteBouquet(id) {
             if (confirm("Delete this design permanently from gallery?")) {
-                await db.collection('bouquets').doc(id).delete();
+                state.bouquets = state.bouquets.filter(b => b.id !== id);
+                await dbSet('tf_bouquets_v3', state.bouquets);
+                renderAdminMainSection();
             }
         }
 
         async function toggleVisibility(id) {
-            const b = state.bouquets.find(item => item.id === id);
-            if(b) {
-                await db.collection('bouquets').doc(id).update({ visible: !b.visible });
-            }
+            state.bouquets = state.bouquets.map(b => b.id === id ? { ...b, visible: !b.visible } : b);
+            await dbSet('tf_bouquets_v3', state.bouquets);
+            renderAdminMainSection();
         }
 
         // ==========================================
@@ -824,6 +822,7 @@
                     
                     <div class="bg-white p-10 md:p-14 border border-gray-100 rounded-[3rem] shadow-sm space-y-14">
                         
+                        <!-- Logo & Banner Asset Customizer -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
                             <div class="bg-gray-50 rounded-[2rem] p-8 text-center border border-gray-100">
                                 <p class="text-xs font-bold tracking-[0.2em] text-gray-400 uppercase mb-6">Studio Logo</p>
@@ -848,6 +847,7 @@
                             </div>
                         </div>
 
+                        <!-- Brand Slogans and Content -->
                         <form id="settings-form" class="space-y-8">
                             <div>
                                 <h3 class="text-2xl font-serif text-gray-900 mb-8 border-b border-gray-100 pb-4">Messaging</h3>
@@ -863,6 +863,7 @@
                                 </div>
                             </div>
 
+                            <!-- Integrated Contact CTAs -->
                             <div>
                                 <h3 class="text-2xl font-serif text-gray-900 mb-8 border-b border-gray-100 pb-4">Contacts</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -878,6 +879,14 @@
                                         <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Instagram</label>
                                         <input required id="sett-instagram" type="text" value="${state.settings.instagram}" class="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl outline-none font-medium text-lg" />
                                     </div>
+                                    <div>
+                                        <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">TikTok</label>
+                                        <input id="sett-tiktok" type="text" value="${state.settings.tiktok || ''}" class="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl outline-none font-medium text-lg" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Facebook Page</label>
+                                        <input id="sett-facebook" type="text" value="${state.settings.facebook || ''}" class="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl outline-none font-medium text-lg" />
+                                    </div>
                                 </div>
                             </div>
                             
@@ -891,43 +900,34 @@
                 </div>
             `;
 
-            // Logo Upload to Firebase Storage
+            // Logo & Banner Direct Select Logic
             document.getElementById('logo-uploader').onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 try {
-                    document.getElementById('logo-preview-img').style.opacity = '0.5';
                     const compressed = await compressImage(file, 400, 0.9);
-                    const downloadUrl = await uploadToFirebaseStorage(compressed);
-                    
-                    state.settings.logo = downloadUrl;
-                    await db.collection('settings').doc('global').set(state.settings, { merge: true });
-                    document.getElementById('logo-preview-img').style.opacity = '1';
+                    state.settings.logo = compressed;
+                    document.getElementById('logo-preview-img').src = compressed;
+                    await dbSet('tf_settings_v3', state.settings);
                 } catch (err) {
-                    alert("Error uploading logo.");
-                    console.error(err);
+                    alert("Error scaling logo image.");
                 }
             };
 
-            // Banner Upload to Firebase Storage
             document.getElementById('banner-uploader').onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 try {
-                    document.getElementById('banner-preview-img').style.opacity = '0.5';
                     const compressed = await compressImage(file, 1600, 0.85);
-                    const downloadUrl = await uploadToFirebaseStorage(compressed);
-                    
-                    state.settings.banner = downloadUrl;
-                    await db.collection('settings').doc('global').set(state.settings, { merge: true });
-                    document.getElementById('banner-preview-img').style.opacity = '1';
+                    state.settings.banner = compressed;
+                    document.getElementById('banner-preview-img').src = compressed;
+                    await dbSet('tf_settings_v3', state.settings);
                 } catch (err) {
-                    alert("Error uploading banner.");
-                    console.error(err);
+                    alert("Error scaling banner image.");
                 }
             };
 
-            // Forms Submit logic saving to Firestore
+            // Forms Submit logic
             document.getElementById('settings-form').onsubmit = async (e) => {
                 e.preventDefault();
                 state.settings.heroSlogan = document.getElementById('sett-slogan').value;
@@ -935,57 +935,107 @@
                 state.settings.whatsapp = document.getElementById('sett-whatsapp').value;
                 state.settings.phone = document.getElementById('sett-phone').value;
                 state.settings.instagram = document.getElementById('sett-instagram').value;
+                state.settings.tiktok = document.getElementById('sett-tiktok').value;
+                state.settings.facebook = document.getElementById('sett-facebook').value;
 
-                try {
-                    await db.collection('settings').doc('global').set(state.settings, { merge: true });
-                    alert("Settings Saved Successfully!");
-                } catch(err) {
-                    alert("Error saving settings.");
-                    console.error(err);
-                }
+                await dbSet('tf_settings_v3', state.settings);
+                alert("Settings Saved Successfully!");
+                updateView();
             };
         }
 
         // ==========================================
-        // 13. SYSTEM BOOTSTRAP (Firebase Syncing)
+        // 13. SYSTEM BOOTSTRAP (Initialization)
         // ==========================================
+        function hideLoader() {
+            const loader = document.getElementById('loader-screen');
+            if (loader) loader.classList.add('opacity-0', 'pointer-events-none');
+        }
+
         function bootstrap() {
-            // Realtime Setting Listener
-            db.collection('settings').doc('global').onSnapshot((doc) => {
-                if (doc.exists) {
-                    state.settings = { ...state.settings, ...doc.data() };
-                    if(doc.data().categories) state.categories = doc.data().categories;
-                    updateView();
-                }
+            // If the Firebase script below failed to load (blocked network, etc.),
+            // don't leave visitors staring at the loader forever — show local defaults.
+            if (typeof window.__firebaseOnValue !== 'function') {
+                console.error('Firebase did not load — showing default content only.');
+                hideLoader();
+                updateView();
+                return;
+            }
+
+            const firstLoad = { bouquets: false, categories: false, settings: false };
+            function markFirstLoad(key) {
+                if (firstLoad[key]) return;
+                firstLoad[key] = true;
+                if (firstLoad.bouquets && firstLoad.categories && firstLoad.settings) hideLoader();
+            }
+
+            // Live sync: EVERY phone/browser that has this site open is listening here.
+            // The instant admin saves something on one device, this fires on all the others.
+            window.__firebaseOnValue('tf_bouquets_v3', (val) => {
+                state.bouquets = val || [];
+                markFirstLoad('bouquets');
+                updateView();
+            });
+            window.__firebaseOnValue('tf_categories_v3', (val) => {
+                if (val) state.categories = val;
+                markFirstLoad('categories');
+                updateView();
+            });
+            window.__firebaseOnValue('tf_settings_v3', (val) => {
+                if (val) state.settings = { ...state.settings, ...val };
+                markFirstLoad('settings');
+                updateView();
             });
 
-            // Realtime Bouquets Listener
-            db.collection('bouquets').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
-                state.bouquets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                updateView();
-                
-                // Dissolve loader screen seamlessly after initial load
-                const loader = document.getElementById('loader-screen');
-                if (loader) {
-                    loader.classList.add('opacity-0', 'pointer-events-none');
-                }
-            }, (error) => {
-                console.error("Error fetching bouquets:", error);
-            });
-            
-            // Listen for Auth changes in background to preserve admin persistence
-            auth.onAuthStateChanged((user) => {
-                if (user && state.currentView === 'admin_login') {
-                    state.currentView = 'admin_dashboard';
-                    updateView();
-                }
-            });
+            // Safety net so a slow/offline connection never traps a visitor on the loader
+            setTimeout(hideLoader, 8000);
         }
 
         // Bootstrap on screen completion
         window.onload = () => {
             bootstrap();
         };
+    </script>
+
+    <!-- ==========================================
+         FIREBASE CLOUD SYNC — this is what makes changes
+         show on every device instead of just one.
+         👉 PASTE YOUR OWN PROJECT CONFIG BELOW 👈
+         ========================================== -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js";
+
+        // 🔻🔻🔻 Replace this whole object with YOUR Firebase project's config 🔻🔻🔻
+        // Get it from: Firebase Console → ⚙️ Project settings → General tab →
+        // "Your apps" section → the </> (Web) app → "SDK setup and configuration"
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        // 🔺🔺🔺 Replace this whole object with YOUR Firebase project's config 🔺🔺🔺
+
+        try {
+            const fbApp = initializeApp(firebaseConfig);
+            const db = getDatabase(fbApp);
+
+            // Bridge functions the main app script (above) calls into
+            window.__firebaseSetPath = (path, value) => set(ref(db, path), value);
+            window.__firebaseOnValue = (path, callback) => {
+                onValue(ref(db, path), (snapshot) => {
+                    callback(snapshot.exists() ? snapshot.val() : null);
+                }, (error) => {
+                    console.error('Firebase sync error on "' + path + '":', error);
+                });
+            };
+        } catch (err) {
+            console.error('Firebase failed to initialize — check firebaseConfig.', err);
+        }
     </script>
 </body>
 </html>
