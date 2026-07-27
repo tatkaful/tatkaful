@@ -141,20 +141,14 @@
         .animate-fade-up { animation: fadeUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
         input:focus, textarea:focus, select:focus { outline: none; }
+
+        /* Drag & drop reordering (admin) */
+        .drag-handle { cursor: grab; }
+        tr.dragging { opacity: 0.4; }
+        tr.drag-over-row { box-shadow: inset 0 2px 0 0 var(--gold); }
     </style>
 </head>
 <body class="text-gray-800 antialiased selection:bg-[#10583f] selection:text-white">
-
-    <div id="loader-screen" class="fixed inset-0 z-50 bg-[#faf8f4] flex flex-col items-center justify-center transition-all duration-700">
-        <div class="flex flex-col items-center space-y-4">
-            <svg class="animate-spin h-10 w-10 text-[#10583f]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <h1 class="text-3xl font-serif tracking-wider text-gray-900 animate-pulse">Tatka Ful</h1>
-            <p class="text-xs uppercase tracking-[0.2em] text-gray-400 font-semibold">Luxury Floral Design</p>
-        </div>
-    </div>
 
     <div id="app-root" class="min-h-screen flex flex-col"></div>
 
@@ -167,17 +161,10 @@
         // --- 2. GLOBAL SYSTEM STATE ---
         let state = {
             currentView: 'home', // 'home' | 'admin_login' | 'admin_dashboard'
-            selectedCategory: 'All',
             searchQuery: '',
             selectedBouquet: null,
             bouquets: [],
             reviews: [],
-            categories: [
-                "🌹 Rose Bouquet", "💐 Mixed Bouquet", "🌸 Lily Bouquet", "🌻 Sunflower Bouquet",
-                "💵 Money Bouquet", "❤️ Anniversary Bouquet", "🎂 Birthday Bouquet", "💍 Proposal Bouquet",
-                "💖 Valentine's Bouquet", "👰 Wedding Bouquet", "🎓 Graduation Bouquet", "🎉 Congratulations Bouquet",
-                "🎁 Surprise Bouquet", "✨ Premium Bouquet", "👑 Luxury Bouquet"
-            ],
             settings: {
                 logo: 'IMG_0254.png',
                 banner: 'IMG_0255.png',
@@ -188,12 +175,13 @@
                 facebook: 'https://facebook.com/tatkaful',
                 heroSlogan: 'Elegance in Every Petal.',
                 heroDesc: 'Curating luxury floral masterpieces for your most precious memories. Exclusively hand-crafted with passion.',
-                deliveryText: '⚡ 3-Hour Delivery Available in Dhaka'
+                deliveryText: '⚡ 3-Hour Delivery Available in Dhaka',
+                currency: '৳'
             },
             adminTab: 'bouquets', // 'bouquets' | 'reviews' | 'settings'
             isAddingBouquet: false,
             editingId: null,
-            formData: { name: '', category: '', description: '', images: [], bestseller: false, visible: true },
+            formData: { name: '', description: '', images: [], bestseller: false, visible: true, price: '', oldPrice: '' },
             isUploading: false,
             isAddingReview: false,
             editingReviewId: null,
@@ -205,11 +193,21 @@
         let secretClickCount = 0;
         let secretClickTimer = null;
 
+        // Drag-and-drop reordering (admin inventory list)
+        let dragSourceId = null;
+
         // --- 3. HELPER FUNCTIONS ---
         function formatWhatsApp(number) {
             let formatted = (number || '').replace(/[^0-9]/g, '');
             if (formatted.startsWith('0')) formatted = '88' + formatted;
             return formatted;
+        }
+
+        function formatPrice(n) {
+            if (n === undefined || n === null || n === '') return '';
+            const num = Number(n);
+            if (Number.isNaN(num)) return n;
+            return num.toLocaleString('en-US');
         }
 
         function compressImage(file, maxWidth = 1200, quality = 0.85) {
@@ -250,6 +248,17 @@
             return html;
         }
 
+        function priceBlockHTML(bouquet, size) {
+            if (!bouquet.price && !bouquet.oldPrice) return '';
+            const big = size === 'lg';
+            return `
+                <div class="flex items-baseline gap-2 sm:gap-3 ${big ? 'mb-6' : 'mb-2.5 sm:mb-3'}">
+                    ${bouquet.oldPrice ? `<span class="${big ? 'text-lg' : 'text-xs sm:text-sm'} text-gray-400 line-through font-medium">${state.settings.currency || '৳'}${formatPrice(bouquet.oldPrice)}</span>` : ''}
+                    ${bouquet.price ? `<span class="${big ? 'text-3xl' : 'text-base sm:text-xl'} font-bold text-[#0b2e22]">${state.settings.currency || '৳'}${formatPrice(bouquet.price)}</span>` : ''}
+                </div>
+            `;
+        }
+
         // Order via WhatsApp — auto-downloads the bouquet photo to the customer's
         // device (so it's ready in their gallery to attach) and opens a prefilled
         // WhatsApp chat. Note: no website can insert an image directly into a
@@ -265,7 +274,7 @@
                 try {
                     const link = document.createElement('a');
                     link.href = bouquet.images[0];
-                    link.download = `TatkaFul-${bouquet.name.replace(/[^a-zA-Z0-9]+/g, '-')}.jpg`;
+                    link.download = `TatkaFul-${(bouquet.name || 'Design').replace(/[^a-zA-Z0-9]+/g, '-')}.jpg`;
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
@@ -274,7 +283,8 @@
                 }
             }
 
-            const message = `Hello Tatka Ful! 🌸 I would love to order the premium "${bouquet.name}" design.\n(📷 Photo saved on my device — attaching it here!)`;
+            const priceLine = bouquet.price ? `\nPrice: ${state.settings.currency || '৳'}${formatPrice(bouquet.price)}` : '';
+            const message = `Hello Tatka Ful! 🌸 I would love to order the premium "${bouquet.name || 'Design'}" design.${priceLine}\n(📷 Photo saved on my device — attaching it here!)`;
             const url = `https://wa.me/${formatWhatsApp(state.settings.whatsapp)}?text=${encodeURIComponent(message)}`;
             window.open(url, '_blank', 'noreferrer');
         }
@@ -296,29 +306,12 @@
         // ==========================================
         function computeFilteredBouquets() {
             const visibleBouquets = state.bouquets.filter(b => b.visible !== false);
-            let list = state.selectedCategory === 'All' ? visibleBouquets : visibleBouquets.filter(b => b.category === state.selectedCategory);
             const q = state.searchQuery.trim().toLowerCase();
-            if (q) {
-                list = list.filter(b =>
-                    (b.name || '').toLowerCase().includes(q) ||
-                    (b.category || '').toLowerCase().includes(q) ||
-                    (b.description || '').toLowerCase().includes(q)
-                );
-            }
-            return list;
-        }
-
-        function renderCategoryChipsHTML() {
-            return `
-                <button onclick="setCategoryFilter('All')" class="snap-start whitespace-nowrap px-6 sm:px-8 py-3 rounded-full transition-all duration-500 text-xs sm:text-sm font-semibold tracking-wider uppercase ${state.selectedCategory === 'All' ? 'bg-[#0b2e22] text-white shadow-md' : 'bg-transparent text-gray-500 hover:text-[#10583f] hover:bg-gray-100'}">
-                    All Designs
-                </button>
-                ${state.categories.map(cat => `
-                    <button onclick="setCategoryFilter('${cat.replace(/'/g, "\\'")}')" class="snap-start whitespace-nowrap px-6 sm:px-8 py-3 rounded-full transition-all duration-500 text-xs sm:text-sm font-semibold tracking-wider uppercase ${state.selectedCategory === cat ? 'bg-[#0b2e22] text-white shadow-md' : 'bg-transparent text-gray-500 hover:text-[#10583f] hover:bg-gray-100'}">
-                        ${cat}
-                    </button>
-                `).join('')}
-            `;
+            if (!q) return visibleBouquets;
+            return visibleBouquets.filter(b =>
+                (b.name || '').toLowerCase().includes(q) ||
+                (b.description || '').toLowerCase().includes(q)
+            );
         }
 
         function renderBouquetGridHTML(displayedBouquets) {
@@ -329,7 +322,7 @@
                             <svg class="w-9 h-9 sm:w-10 sm:h-10 text-[#10583f]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         </div>
                         <h3 class="text-2xl sm:text-3xl font-serif text-gray-900 mb-3">${state.searchQuery ? 'No matching designs found' : 'Collection is empty'}</h3>
-                        <p class="text-gray-500 font-light text-base sm:text-lg px-6">${state.searchQuery ? 'Try a different search term or browse all categories.' : 'Our designers are currently building premium designs.'}</p>
+                        <p class="text-gray-500 font-light text-base sm:text-lg px-6">${state.searchQuery ? 'Try a different search term.' : 'Our designers are currently building premium designs.'}</p>
                     </div>
                 `;
             }
@@ -337,9 +330,9 @@
                 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 sm:gap-x-6 md:gap-x-10 gap-y-8 sm:gap-y-10 md:gap-y-16">
                     ${displayedBouquets.map((bouquet, index) => `
                         <div class="group cursor-pointer flex flex-col animate-fade-up" style="animation-delay: ${index * 0.05}s" onclick="openDetailModal('${bouquet.id}')">
-                            <div class="relative aspect-[4/5] rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden luxury-card mb-3 sm:mb-6">
+                            <div class="relative aspect-[4/5] rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden luxury-card mb-3 sm:mb-4">
                                 ${bouquet.images && bouquet.images.length > 0 ? `
-                                    <img src="${bouquet.images[0]}" alt="${bouquet.name}" class="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110" />
+                                    <img src="${bouquet.images[0]}" alt="${bouquet.name || 'Bouquet'}" class="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110" />
                                 ` : `
                                     <div class="w-full h-full flex items-center justify-center bg-gray-50 text-gray-300 text-xs">No Image</div>
                                 `}
@@ -351,14 +344,14 @@
                                 ` : ''}
                             </div>
                             <div class="px-1 sm:px-3 flex flex-col flex-1">
-                                <p class="text-[9px] sm:text-[11px] font-bold tracking-[0.15em] sm:tracking-[0.2em] text-[#10583f] uppercase mb-1.5 sm:mb-3 truncate">${bouquet.category}</p>
-                                <h3 class="text-base sm:text-2xl font-serif text-gray-900 mb-1.5 sm:mb-3 group-hover:text-[#10583f] transition-colors leading-snug">${bouquet.name}</h3>
-                                <p class="hidden sm:block text-gray-500 text-sm line-clamp-2 leading-relaxed font-light mb-4">${bouquet.description}</p>
-                                <button onclick="orderViaWhatsApp('${bouquet.id}', event)" class="mt-auto premium-btn text-white text-[10px] sm:text-xs font-bold uppercase tracking-[0.12em] sm:tracking-[0.2em] py-2.5 sm:py-3.5 rounded-full flex items-center justify-center gap-1.5 sm:gap-2">
+                                <h3 class="text-base sm:text-2xl font-serif text-gray-900 mb-1.5 sm:mb-2 group-hover:text-[#10583f] transition-colors leading-snug">${bouquet.name || 'Untitled Design'}</h3>
+                                ${priceBlockHTML(bouquet)}
+                                <button onclick="orderViaWhatsApp('${bouquet.id}', event)" class="premium-btn text-white text-[10px] sm:text-xs font-bold uppercase tracking-[0.12em] sm:tracking-[0.2em] py-2.5 sm:py-3.5 rounded-full flex items-center justify-center gap-1.5 sm:gap-2 mb-2.5 sm:mb-4">
                                     <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.713-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.625 1.451 5.436 0 9.851-4.398 9.854-9.807.001-2.621-1.013-5.086-2.86-6.935C16.36 1.913 13.9.894 11.285.894c-5.438 0-9.854 4.398-9.858 9.808 0 2.037.533 4.024 1.547 5.765l-.99 3.613 3.73-.973h.001a9.78 9.78 0 0 0 4.332 1.048z"/></svg>
-                                    <span class="sm:hidden">Order</span>
+                                    <span class="sm:hidden">Order Now</span>
                                     <span class="hidden sm:inline">Order Now</span>
                                 </button>
+                                <p class="hidden sm:block text-gray-500 text-sm line-clamp-2 leading-relaxed font-light">${bouquet.description || ''}</p>
                             </div>
                         </div>
                     `).join('')}
@@ -367,17 +360,8 @@
         }
 
         function refreshCollection() {
-            const chipsWrap = document.getElementById('category-chips-wrapper');
             const gridWrap = document.getElementById('bouquet-grid-wrapper');
-            if (chipsWrap) chipsWrap.innerHTML = renderCategoryChipsHTML();
             if (gridWrap) gridWrap.innerHTML = renderBouquetGridHTML(computeFilteredBouquets());
-        }
-
-        function setCategoryFilter(category) {
-            state.selectedCategory = category;
-            refreshCollection();
-            const el = document.getElementById('collection');
-            if (el) el.scrollIntoView({ behavior: 'smooth' });
         }
 
         function handleSearchInput(value) {
@@ -460,10 +444,7 @@
                     <div class="max-w-7xl mx-auto flex flex-col gap-4">
                         <div class="relative max-w-xl w-full">
                             <svg class="w-5 h-5 text-gray-400 absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"></path></svg>
-                            <input id="search-input" type="text" value="${state.searchQuery}" oninput="handleSearchInput(this.value)" placeholder="Search bouquets by name or occasion..." class="w-full pl-12 pr-5 py-3.5 bg-white border border-gray-200 rounded-full text-sm font-medium focus:border-[#10583f] focus:ring-2 focus:ring-[#10583f]/10 transition-all placeholder:text-gray-400 placeholder:font-normal" />
-                        </div>
-                        <div id="category-chips-wrapper" class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
-                            ${renderCategoryChipsHTML()}
+                            <input id="search-input" type="text" value="${state.searchQuery}" oninput="handleSearchInput(this.value)" placeholder="Search bouquets by name..." class="w-full pl-12 pr-5 py-3.5 bg-white border border-gray-200 rounded-full text-sm font-medium focus:border-[#10583f] focus:ring-2 focus:ring-[#10583f]/10 transition-all placeholder:text-gray-400 placeholder:font-normal" />
                         </div>
                     </div>
                 </section>
@@ -574,7 +555,7 @@
                         <div class="w-full md:w-1/2 bg-[#faf8f4] h-[50vh] md:h-auto overflow-y-auto snap-y snap-mandatory scrollbar-hide relative">
                             ${bouquet.images && bouquet.images.length > 0 ? bouquet.images.map((img, i) => `
                                 <div class="w-full h-full min-h-[50vh] md:min-h-full snap-center relative">
-                                    <img src="${img}" alt="${bouquet.name} ${i+1}" class="w-full h-full object-cover" />
+                                    <img src="${img}" alt="${bouquet.name || 'Bouquet'} ${i+1}" class="w-full h-full object-cover" />
                                 </div>
                             `).join('') : `
                                 <div class="w-full h-full flex items-center justify-center text-gray-300 font-light">No Gallery Images</div>
@@ -587,10 +568,10 @@
                         </div>
 
                         <div class="w-full md:w-1/2 p-8 md:p-16 flex flex-col h-[50vh] md:h-auto overflow-y-auto bg-white">
-                            <p class="text-[11px] font-bold tracking-[0.3em] text-[#10583f] uppercase mb-4">${bouquet.category}</p>
-                            <h2 class="text-4xl md:text-5xl font-serif text-gray-900 mb-6 leading-tight">${bouquet.name}</h2>
+                            <h2 class="text-4xl md:text-5xl font-serif text-gray-900 mb-4 leading-tight">${bouquet.name || 'Untitled Design'}</h2>
+                            ${priceBlockHTML(bouquet, 'lg')}
                             <div class="gold-divider mb-8"></div>
-                            <p class="text-gray-600 leading-relaxed mb-10 font-light text-lg">${bouquet.description}</p>
+                            <p class="text-gray-600 leading-relaxed mb-10 font-light text-lg">${bouquet.description || ''}</p>
 
                             <div class="mt-auto space-y-4">
                                 <div class="flex items-center gap-3 text-sm text-gray-500 mb-8 font-medium bg-gray-50 p-4 rounded-xl">
@@ -716,12 +697,42 @@
         }
 
         // ==========================================
-        // 10. ADMIN: INVENTORY LIST
+        // 10. ADMIN: INVENTORY LIST (drag & drop reorder)
         // ==========================================
+        function handleRowDragStart(id, ev) {
+            dragSourceId = id;
+            ev.dataTransfer.effectAllowed = 'move';
+            ev.currentTarget.classList.add('dragging');
+        }
+        function handleRowDragEnd(ev) {
+            ev.currentTarget.classList.remove('dragging');
+            document.querySelectorAll('tr.drag-over-row').forEach(el => el.classList.remove('drag-over-row'));
+        }
+        function handleRowDragOver(ev) {
+            ev.preventDefault();
+            ev.currentTarget.classList.add('drag-over-row');
+        }
+        function handleRowDragLeave(ev) {
+            ev.currentTarget.classList.remove('drag-over-row');
+        }
+        async function handleRowDrop(targetId, ev) {
+            ev.preventDefault();
+            ev.currentTarget.classList.remove('drag-over-row');
+            if (!dragSourceId || dragSourceId === targetId) return;
+            const fromIdx = state.bouquets.findIndex(b => b.id === dragSourceId);
+            const toIdx = state.bouquets.findIndex(b => b.id === targetId);
+            if (fromIdx === -1 || toIdx === -1) return;
+            const [moved] = state.bouquets.splice(fromIdx, 1);
+            state.bouquets.splice(toIdx, 0, moved);
+            dragSourceId = null;
+            renderAdminMainSection();
+            await dbSet('tf_bouquets_v3', state.bouquets);
+        }
+
         function renderBouquetList(container) {
             container.innerHTML = `
                 <div class="animate-fade-up max-w-6xl mx-auto">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
                         <div>
                             <h1 class="text-4xl font-serif text-gray-900 mb-2">Inventory Management</h1>
                             <p class="text-gray-500 font-light">Curate and publish natural artwork.</p>
@@ -731,7 +742,7 @@
                         </button>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <div class="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
                             <p class="text-xs text-gray-400 font-bold tracking-[0.2em] uppercase mb-3">Total Designs</p>
                             <p class="text-5xl font-serif text-gray-900">${state.bouquets.length}</p>
@@ -746,31 +757,47 @@
                         </div>
                     </div>
 
+                    <div class="flex items-center gap-3 bg-[#eaf6f0] text-[#10583f] px-6 py-4 rounded-2xl mb-6 text-sm font-medium">
+                        <span class="text-lg">⠿</span>
+                        <span>Drag rows by the handle to reorder. The <strong>top row here shows first</strong> on your homepage.</span>
+                    </div>
+
                     <div class="bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-sm">
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="border-b border-gray-100 bg-gray-50/50">
+                                    <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-[0.2em] w-10"></th>
                                     <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-[0.2em]">Item</th>
-                                    <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-[0.2em] hidden md:table-cell">Category</th>
+                                    <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-[0.2em] hidden md:table-cell">Price</th>
                                     <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-[0.2em] text-center">Status</th>
                                     <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-[0.2em] text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-50">
                                 ${state.bouquets.length === 0 ? `
-                                    <tr><td colspan="4" class="p-12 text-center text-gray-400 font-light text-lg">No inventory found. Click 'New Design' to publish first piece.</td></tr>
+                                    <tr><td colspan="5" class="p-12 text-center text-gray-400 font-light text-lg">No inventory found. Click 'New Design' to publish first piece.</td></tr>
                                 ` : state.bouquets.map(b => `
-                                    <tr class="hover:bg-gray-50/50 transition-colors">
+                                    <tr class="hover:bg-gray-50/50 transition-colors"
+                                        draggable="true"
+                                        ondragstart="handleRowDragStart('${b.id}', event)"
+                                        ondragend="handleRowDragEnd(event)"
+                                        ondragover="handleRowDragOver(event)"
+                                        ondragleave="handleRowDragLeave(event)"
+                                        ondrop="handleRowDrop('${b.id}', event)">
+                                        <td class="p-6 text-gray-300 drag-handle text-xl select-none">⠿</td>
                                         <td class="p-6 flex items-center gap-6">
                                             <div class="w-16 h-16 rounded-2xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
                                                 ${b.images && b.images[0] ? `<img src="${b.images[0]}" class="w-full h-full object-cover" />` : `<div class="w-full h-full flex items-center justify-center text-gray-300">N/A</div>`}
                                             </div>
                                             <div>
-                                                <p class="font-serif text-xl text-gray-900">${b.name}</p>
+                                                <p class="font-serif text-xl text-gray-900">${b.name || 'Untitled Design'}</p>
                                                 ${b.bestseller ? `<span class="text-[9px] bg-[#c8a13a]/10 text-[#9c7a1f] px-3 py-1 rounded-full font-bold uppercase tracking-widest mt-2 inline-block">Signature</span>` : ''}
                                             </div>
                                         </td>
-                                        <td class="p-6 text-sm text-gray-600 hidden md:table-cell font-medium">${b.category}</td>
+                                        <td class="p-6 text-sm hidden md:table-cell font-medium">
+                                            ${b.oldPrice ? `<span class="text-gray-400 line-through mr-2">${state.settings.currency || '৳'}${formatPrice(b.oldPrice)}</span>` : ''}
+                                            ${b.price ? `<span class="text-gray-900 font-bold">${state.settings.currency || '৳'}${formatPrice(b.price)}</span>` : `<span class="text-gray-300">—</span>`}
+                                        </td>
                                         <td class="p-6 text-center">
                                             <button onclick="toggleVisibility('${b.id}')" class="p-3 rounded-full transition-all text-xs font-bold uppercase tracking-widest ${b.visible ? 'text-[#10583f] bg-[#eaf6f0] hover:bg-[#d7efe3]' : 'text-gray-400 bg-gray-100 hover:bg-gray-200'}">
                                                 ${b.visible ? 'Shown' : 'Hidden'}
@@ -822,22 +849,34 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div>
-                                <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Bouquet Name</label>
-                                <input required id="form-name" type="text" value="${state.formData.name}" oninput="state.formData.name=this.value" class="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#10583f]/20 focus:border-[#10583f] transition-all font-medium text-lg" placeholder="e.g. Royal Rose" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Category</label>
-                                <select id="form-category" onchange="state.formData.category=this.value" class="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#10583f]/20 focus:border-[#10583f] transition-all font-medium text-lg">
-                                    ${state.categories.map(c => `<option value="${c}" ${state.formData.category === c ? 'selected' : ''}>${c}</option>`).join('')}
-                                </select>
+                        <div>
+                            <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Bouquet Name <span class="text-gray-300 font-normal">(optional)</span></label>
+                            <input id="form-name" type="text" value="${state.formData.name}" oninput="state.formData.name=this.value" class="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#10583f]/20 focus:border-[#10583f] transition-all font-medium text-lg" placeholder="e.g. Royal Rose" />
+                        </div>
+
+                        <div class="bg-[#faf8f4] p-8 rounded-[2rem] border border-gray-100">
+                            <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-6 uppercase">Pricing</label>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">Old Price <span class="text-gray-400 font-normal">(optional — shown crossed out)</span></label>
+                                    <div class="relative">
+                                        <span class="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 font-bold">${state.settings.currency || '৳'}</span>
+                                        <input id="form-oldprice" type="number" min="0" step="1" value="${state.formData.oldPrice}" oninput="state.formData.oldPrice=this.value" class="w-full pl-11 pr-6 py-5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#10583f]/20 focus:border-[#10583f] transition-all font-medium text-lg" placeholder="e.g. 1800" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">Current Price</label>
+                                    <div class="relative">
+                                        <span class="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 font-bold">${state.settings.currency || '৳'}</span>
+                                        <input id="form-price" type="number" min="0" step="1" value="${state.formData.price}" oninput="state.formData.price=this.value" class="w-full pl-11 pr-6 py-5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#10583f]/20 focus:border-[#10583f] transition-all font-medium text-lg" placeholder="e.g. 1200" />
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Description</label>
-                            <textarea required id="form-desc" oninput="state.formData.description=this.value" rows="4" class="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#10583f]/20 focus:border-[#10583f] transition-all resize-none font-medium text-lg leading-relaxed">${state.formData.description}</textarea>
+                            <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Description <span class="text-gray-300 font-normal">(optional)</span></label>
+                            <textarea id="form-desc" oninput="state.formData.description=this.value" rows="4" class="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#10583f]/20 focus:border-[#10583f] transition-all resize-none font-medium text-lg leading-relaxed">${state.formData.description}</textarea>
                         </div>
 
                         <div class="flex gap-10 pt-4">
@@ -885,8 +924,9 @@
             document.getElementById('bouquet-form').onsubmit = async (e) => {
                 e.preventDefault();
                 state.formData.name = document.getElementById('form-name').value;
-                state.formData.category = document.getElementById('form-category').value;
                 state.formData.description = document.getElementById('form-desc').value;
+                state.formData.oldPrice = document.getElementById('form-oldprice').value;
+                state.formData.price = document.getElementById('form-price').value;
                 state.formData.bestseller = document.getElementById('form-bestseller').checked;
                 state.formData.visible = document.getElementById('form-visible').checked;
 
@@ -904,7 +944,7 @@
         }
 
         function openNewBouquetForm() {
-            state.formData = { name: '', category: state.categories[0] || '', description: '', images: [], bestseller: false, visible: true };
+            state.formData = { name: '', description: '', images: [], bestseller: false, visible: true, price: '', oldPrice: '' };
             state.editingId = null;
             state.isAddingBouquet = true;
             renderAdminMainSection();
@@ -1181,6 +1221,10 @@
                                         <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Delivery Badge Text</label>
                                         <input id="sett-delivery" type="text" value="${state.settings.deliveryText || ''}" class="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl focus:border-[#10583f] font-medium text-lg" placeholder="⚡ 3-Hour Delivery Available in Dhaka" />
                                     </div>
+                                    <div>
+                                        <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Currency Symbol</label>
+                                        <input id="sett-currency" type="text" value="${state.settings.currency || '৳'}" class="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl focus:border-[#10583f] font-medium text-lg" placeholder="৳" />
+                                    </div>
                                 </div>
                             </div>
 
@@ -1251,6 +1295,7 @@
                 state.settings.heroSlogan = document.getElementById('sett-slogan').value;
                 state.settings.heroDesc = document.getElementById('sett-desc').value;
                 state.settings.deliveryText = document.getElementById('sett-delivery').value;
+                state.settings.currency = document.getElementById('sett-currency').value || '৳';
                 state.settings.whatsapp = document.getElementById('sett-whatsapp').value;
                 state.settings.phone = document.getElementById('sett-phone').value;
                 state.settings.instagram = document.getElementById('sett-instagram').value;
@@ -1265,49 +1310,29 @@
 
         // ==========================================
         // 14. SYSTEM BOOTSTRAP (Initialization)
+        // Renders instantly with no loading screen. Data streams in live
+        // from Firebase and the view updates in place as it arrives.
         // ==========================================
-        function hideLoader() {
-            const loader = document.getElementById('loader-screen');
-            if (loader) loader.classList.add('opacity-0', 'pointer-events-none');
-        }
-
         function bootstrap() {
+            updateView(); // paint immediately — no loader, no waiting
+
             if (typeof window.__firebaseOnValue !== 'function') {
                 console.error('Firebase did not load — showing default content only.');
-                hideLoader();
-                updateView();
                 return;
-            }
-
-            const firstLoad = { bouquets: false, categories: false, settings: false, reviews: false };
-            function markFirstLoad(key) {
-                if (firstLoad[key]) return;
-                firstLoad[key] = true;
-                if (firstLoad.bouquets && firstLoad.categories && firstLoad.settings && firstLoad.reviews) hideLoader();
             }
 
             window.__firebaseOnValue('tf_bouquets_v3', (val) => {
                 state.bouquets = val || [];
-                markFirstLoad('bouquets');
-                updateView();
-            });
-            window.__firebaseOnValue('tf_categories_v3', (val) => {
-                if (val) state.categories = val;
-                markFirstLoad('categories');
                 updateView();
             });
             window.__firebaseOnValue('tf_settings_v3', (val) => {
                 if (val) state.settings = { ...state.settings, ...val };
-                markFirstLoad('settings');
                 updateView();
             });
             window.__firebaseOnValue('tf_reviews_v3', (val) => {
                 state.reviews = val || [];
-                markFirstLoad('reviews');
                 updateView();
             });
-
-            setTimeout(hideLoader, 8000);
         }
 
         window.onload = () => { bootstrap(); };
