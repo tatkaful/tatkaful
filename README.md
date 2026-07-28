@@ -16,6 +16,8 @@
             }
         }
     </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
@@ -138,19 +140,26 @@
             from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .animate-fade-up { animation: fadeUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-fade-up { animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
         input:focus, textarea:focus, select:focus { outline: none; }
 
-        .price-strike {
+        /* Price display */
+        .price-old {
+            color: #a3a3a3;
             text-decoration: line-through;
-            text-decoration-color: rgba(220, 38, 38, 0.55);
-            text-decoration-thickness: 1.5px;
+            font-weight: 500;
         }
-
-        .drag-row { cursor: grab; }
-        .drag-row.dragging { opacity: 0.4; }
-        .drag-row.drag-over { box-shadow: inset 0 3px 0 0 var(--emerald); }
+        .price-current {
+            color: var(--emerald);
+            font-weight: 800;
+        }
+        .discount-pill {
+            background: linear-gradient(135deg, var(--gold-deep), var(--gold));
+            color: #fff;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+        }
     </style>
 </head>
 <body class="text-gray-800 antialiased selection:bg-[#10583f] selection:text-white">
@@ -185,7 +194,7 @@
             adminTab: 'bouquets', // 'bouquets' | 'reviews' | 'settings'
             isAddingBouquet: false,
             editingId: null,
-            formData: { name: '', description: '', price: '', oldPrice: '', images: [], bestseller: false, visible: true },
+            formData: { name: '', description: '', images: [], bestseller: false, visible: true, oldPrice: '', currentPrice: '', position: '' },
             isUploading: false,
             isAddingReview: false,
             editingReviewId: null,
@@ -196,9 +205,6 @@
         // Secret admin-access counter (7 clicks on footer credit line)
         let secretClickCount = 0;
         let secretClickTimer = null;
-
-        // Drag-reorder tracking (admin bouquet list)
-        let dragSourceId = null;
 
         // --- 3. HELPER FUNCTIONS ---
         function formatWhatsApp(number) {
@@ -245,30 +251,25 @@
             return html;
         }
 
-        // Builds the price markup shown to customers: old price struck-through
-        // plus the current price, with a discount badge when applicable.
-        function renderPriceHTML(bouquet, size) {
-            const price = bouquet.price !== undefined && bouquet.price !== '' ? Number(bouquet.price) : null;
-            const oldPrice = bouquet.oldPrice !== undefined && bouquet.oldPrice !== '' ? Number(bouquet.oldPrice) : null;
-            if (price === null && oldPrice === null) return '';
-            const big = size === 'lg';
-            const curCls = big ? 'text-2xl sm:text-3xl' : 'text-base sm:text-xl';
-            const oldCls = big ? 'text-base sm:text-lg' : 'text-xs sm:text-sm';
-            const hasDiscount = price !== null && oldPrice !== null && oldPrice > price;
-            if (hasDiscount) {
-                const pct = Math.round((1 - price / oldPrice) * 100);
-                return `
-                    <div class="flex items-baseline flex-wrap gap-2 ${big ? 'mb-6' : 'mb-2 sm:mb-4'}">
-                        <span class="price-strike text-gray-400 font-medium ${oldCls}">৳${oldPrice}</span>
-                        <span class="text-[#10583f] font-bold ${curCls}">৳${price}</span>
-                        ${pct > 0 ? `<span class="bg-red-50 text-red-600 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">Save ${pct}%</span>` : ''}
-                    </div>
-                `;
+        // Renders the price block used on both the product card and the detail modal.
+        // Shows the discount price prominently and the old price with a strikethrough.
+        function renderPriceHTML(bouquet, size = 'card') {
+            const hasOld = bouquet.oldPrice !== undefined && bouquet.oldPrice !== null && bouquet.oldPrice !== '';
+            const hasCurrent = bouquet.currentPrice !== undefined && bouquet.currentPrice !== null && bouquet.currentPrice !== '';
+            if (!hasOld && !hasCurrent) return '';
+            let discountPct = null;
+            if (hasOld && hasCurrent && Number(bouquet.oldPrice) > Number(bouquet.currentPrice) && Number(bouquet.oldPrice) > 0) {
+                discountPct = Math.round((1 - (Number(bouquet.currentPrice) / Number(bouquet.oldPrice))) * 100);
             }
-            if (price !== null) {
-                return `<div class="flex items-baseline gap-2 ${big ? 'mb-6' : 'mb-2 sm:mb-4'}"><span class="text-[#10583f] font-bold ${curCls}">৳${price}</span></div>`;
-            }
-            return '';
+            const currentSize = size === 'modal' ? 'text-3xl md:text-4xl' : 'text-lg sm:text-xl';
+            const oldSize = size === 'modal' ? 'text-base' : 'text-xs sm:text-sm';
+            return `
+                <div class="flex items-center flex-wrap gap-2 sm:gap-3 ${size === 'modal' ? 'mb-6' : 'mb-2 sm:mb-3'}">
+                    ${hasCurrent ? `<span class="price-current font-serif ${currentSize}">৳${bouquet.currentPrice}</span>` : ''}
+                    ${hasOld ? `<span class="price-old ${oldSize}">৳${bouquet.oldPrice}</span>` : ''}
+                    ${discountPct && discountPct > 0 ? `<span class="discount-pill text-[9px] sm:text-[10px] px-2 py-1 rounded-full uppercase">${discountPct}% Off</span>` : ''}
+                </div>
+            `;
         }
 
         // Order via WhatsApp — auto-downloads the bouquet photo to the customer's
@@ -286,7 +287,7 @@
                 try {
                     const link = document.createElement('a');
                     link.href = bouquet.images[0];
-                    link.download = `TatkaFul-${(bouquet.name || 'design').replace(/[^a-zA-Z0-9]+/g, '-')}.jpg`;
+                    link.download = `TatkaFul-${(bouquet.name || 'Design').replace(/[^a-zA-Z0-9]+/g, '-')}.jpg`;
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
@@ -295,17 +296,8 @@
                 }
             }
 
-            const price = bouquet.price !== undefined && bouquet.price !== '' ? Number(bouquet.price) : null;
-            const oldPrice = bouquet.oldPrice !== undefined && bouquet.oldPrice !== '' ? Number(bouquet.oldPrice) : null;
-            let priceLine = '';
-            if (price !== null && oldPrice !== null && oldPrice > price) {
-                priceLine = `\n💰 Price: ৳${price} (was ৳${oldPrice})`;
-            } else if (price !== null) {
-                priceLine = `\n💰 Price: ৳${price}`;
-            }
-
-            const displayName = bouquet.name || 'this design';
-            const message = `Hello Tatka Ful! 🌸 I would love to order the premium "${displayName}" design.${priceLine}\n(📷 Photo saved on my device — attaching it here!)`;
+            const priceNote = bouquet.currentPrice ? ` (৳${bouquet.currentPrice})` : '';
+            const message = `Hello Tatka Ful! 🌸 I would love to order the premium "${bouquet.name || 'Bouquet'}" design${priceNote}.\n(📷 Photo saved on my device — attaching it here!)`;
             const url = `https://wa.me/${formatWhatsApp(state.settings.whatsapp)}?text=${encodeURIComponent(message)}`;
             window.open(url, '_blank', 'noreferrer');
         }
@@ -322,17 +314,32 @@
             }
         }
 
+        // Sorts bouquets by their admin-assigned position number (ascending).
+        // Items without a position (or tied positions) fall back to a stable,
+        // deterministic order by id so nothing is ever lost or reshuffled oddly.
+        function sortByPosition(list) {
+            return [...list].sort((a, b) => {
+                const pa = (a.position === '' || a.position === undefined || a.position === null || isNaN(Number(a.position))) ? Number.POSITIVE_INFINITY : Number(a.position);
+                const pb = (b.position === '' || b.position === undefined || b.position === null || isNaN(Number(b.position))) ? Number.POSITIVE_INFINITY : Number(b.position);
+                if (pa !== pb) return pa - pb;
+                return String(a.id).localeCompare(String(b.id));
+            });
+        }
+
         // ==========================================
         // 5. RENDERING THE CUSTOMER HOME PORTAL
         // ==========================================
         function computeFilteredBouquets() {
             const visibleBouquets = state.bouquets.filter(b => b.visible !== false);
+            let list = visibleBouquets;
             const q = state.searchQuery.trim().toLowerCase();
-            if (!q) return visibleBouquets;
-            return visibleBouquets.filter(b =>
-                (b.name || '').toLowerCase().includes(q) ||
-                (b.description || '').toLowerCase().includes(q)
-            );
+            if (q) {
+                list = list.filter(b =>
+                    (b.name || '').toLowerCase().includes(q) ||
+                    (b.description || '').toLowerCase().includes(q)
+                );
+            }
+            return sortByPosition(list);
         }
 
         function renderBouquetGridHTML(displayedBouquets) {
@@ -350,10 +357,10 @@
             return `
                 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 sm:gap-x-6 md:gap-x-10 gap-y-8 sm:gap-y-10 md:gap-y-16">
                     ${displayedBouquets.map((bouquet, index) => `
-                        <div class="group cursor-pointer flex flex-col animate-fade-up" style="animation-delay: ${index * 0.05}s" onclick="openDetailModal('${bouquet.id}')">
+                        <div class="group cursor-pointer flex flex-col animate-fade-up" style="animation-delay: ${Math.min(index, 8) * 0.05}s" onclick="openDetailModal('${bouquet.id}')">
                             <div class="relative aspect-[4/5] rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden luxury-card mb-3 sm:mb-6">
                                 ${bouquet.images && bouquet.images.length > 0 ? `
-                                    <img src="${bouquet.images[0]}" alt="${bouquet.name || 'Bouquet'}" class="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110" />
+                                    <img src="${bouquet.images[0]}" alt="${bouquet.name || 'Bouquet'}" loading="lazy" class="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110" />
                                 ` : `
                                     <div class="w-full h-full flex items-center justify-center bg-gray-50 text-gray-300 text-xs">No Image</div>
                                 `}
@@ -365,9 +372,9 @@
                                 ` : ''}
                             </div>
                             <div class="px-1 sm:px-3 flex flex-col flex-1">
-                                <h3 class="text-base sm:text-2xl font-serif text-gray-900 mb-1.5 sm:mb-3 group-hover:text-[#10583f] transition-colors leading-snug">${bouquet.name || 'Elegant Design'}</h3>
-                                ${bouquet.description ? `<p class="hidden sm:block text-gray-500 text-sm line-clamp-2 leading-relaxed font-light mb-3">${bouquet.description}</p>` : ''}
-                                ${renderPriceHTML(bouquet, 'sm')}
+                                <h3 class="text-base sm:text-2xl font-serif text-gray-900 mb-1.5 sm:mb-2 group-hover:text-[#10583f] transition-colors leading-snug">${bouquet.name || 'Fresh Bouquet'}</h3>
+                                ${renderPriceHTML(bouquet, 'card')}
+                                ${bouquet.description ? `<p class="hidden sm:block text-gray-500 text-sm line-clamp-2 leading-relaxed font-light mb-4">${bouquet.description}</p>` : `<div class="hidden sm:block mb-4"></div>`}
                                 <button onclick="orderViaWhatsApp('${bouquet.id}', event)" class="mt-auto premium-btn text-white text-[10px] sm:text-xs font-bold uppercase tracking-[0.12em] sm:tracking-[0.2em] py-2.5 sm:py-3.5 rounded-full flex items-center justify-center gap-1.5 sm:gap-2">
                                     <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.713-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.625 1.451 5.436 0 9.851-4.398 9.854-9.807.001-2.621-1.013-5.086-2.86-6.935C16.36 1.913 13.9.894 11.285.894c-5.438 0-9.854 4.398-9.858 9.808 0 2.037.533 4.024 1.547 5.765l-.99 3.613 3.73-.973h.001a9.78 9.78 0 0 0 4.332 1.048z"/></svg>
                                     <span class="sm:hidden">Order</span>
@@ -400,7 +407,7 @@
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                         ${state.reviews.map((r, i) => `
-                            <div class="luxury-card rounded-[2rem] p-8 sm:p-10 flex flex-col animate-fade-up" style="animation-delay:${i * 0.06}s">
+                            <div class="luxury-card rounded-[2rem] p-8 sm:p-10 flex flex-col animate-fade-up" style="animation-delay:${Math.min(i, 8) * 0.06}s">
                                 <svg class="w-8 h-8 text-[#f6ecd2] mb-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9.983 3v7.391c0 5.704-3.731 9.57-8.983 10.609l-.995-2.151c2.432-.917 3.995-3.638 3.995-5.849h-4v-10h9.983zm14.017 0v7.391c0 5.704-3.748 9.571-9 10.609l-.996-2.151c2.433-.917 3.996-3.638 3.996-5.849h-3.983v-10h9.983z"/></svg>
                                 <div class="flex gap-1 mb-4">${starGlyphs(r.stars || 5)}</div>
                                 <p class="text-gray-600 italic font-light mb-8 leading-relaxed flex-1">${r.text}</p>
@@ -462,8 +469,8 @@
                 </section>
 
                 <section id="collection" class="px-6 py-6 sticky top-24 glass-header z-30 shadow-sm border-t border-gray-100">
-                    <div class="max-w-7xl mx-auto flex flex-col gap-4">
-                        <div class="relative max-w-xl w-full">
+                    <div class="max-w-7xl mx-auto">
+                        <div class="relative max-w-xl w-full mx-auto">
                             <svg class="w-5 h-5 text-gray-400 absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"></path></svg>
                             <input id="search-input" type="text" value="${state.searchQuery}" oninput="handleSearchInput(this.value)" placeholder="Search bouquets by name..." class="w-full pl-12 pr-5 py-3.5 bg-white border border-gray-200 rounded-full text-sm font-medium focus:border-[#10583f] focus:ring-2 focus:ring-[#10583f]/10 transition-all placeholder:text-gray-400 placeholder:font-normal" />
                         </div>
@@ -589,10 +596,10 @@
                         </div>
 
                         <div class="w-full md:w-1/2 p-8 md:p-16 flex flex-col h-[50vh] md:h-auto overflow-y-auto bg-white">
-                            <h2 class="text-4xl md:text-5xl font-serif text-gray-900 mb-6 leading-tight">${bouquet.name || 'Elegant Design'}</h2>
+                            <h2 class="text-4xl md:text-5xl font-serif text-gray-900 mb-4 leading-tight">${bouquet.name || 'Fresh Bouquet'}</h2>
+                            ${renderPriceHTML(bouquet, 'modal')}
                             <div class="gold-divider mb-8"></div>
-                            ${bouquet.description ? `<p class="text-gray-600 leading-relaxed mb-8 font-light text-lg">${bouquet.description}</p>` : ''}
-                            ${renderPriceHTML(bouquet, 'lg')}
+                            ${bouquet.description ? `<p class="text-gray-600 leading-relaxed mb-10 font-light text-lg">${bouquet.description}</p>` : ''}
 
                             <div class="mt-auto space-y-4">
                                 <div class="flex items-center gap-3 text-sm text-gray-500 mb-8 font-medium bg-gray-50 p-4 rounded-xl">
@@ -718,15 +725,16 @@
         }
 
         // ==========================================
-        // 10. ADMIN: INVENTORY LIST (drag rows to reorder — top row shows first on the homepage)
+        // 10. ADMIN: INVENTORY LIST
         // ==========================================
         function renderBouquetList(container) {
+            const sorted = sortByPosition(state.bouquets);
             container.innerHTML = `
                 <div class="animate-fade-up max-w-6xl mx-auto">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
                         <div>
                             <h1 class="text-4xl font-serif text-gray-900 mb-2">Inventory Management</h1>
-                            <p class="text-gray-500 font-light">Curate and publish natural artwork.</p>
+                            <p class="text-gray-500 font-light">Curate and publish natural artwork. Set a position number to control where each item appears on the home page.</p>
                         </div>
                         <button onclick="openNewBouquetForm()" class="premium-btn text-white px-8 py-4 rounded-full flex items-center gap-3 font-bold uppercase tracking-[0.2em] text-xs">
                             New Design
@@ -748,35 +756,22 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-3 mb-4 text-xs font-semibold text-gray-500 bg-[#eaf6f0] border border-[#10583f]/10 rounded-2xl px-5 py-3">
-                        <span>🖐️</span>
-                        <span>Drag any row by its handle to reorder. The <b>top row</b> here shows <b>first</b> on your homepage.</span>
-                    </div>
-
                     <div class="bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-sm">
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="border-b border-gray-100 bg-gray-50/50">
-                                    <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-[0.2em] w-10"></th>
                                     <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-[0.2em]">Item</th>
                                     <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-[0.2em] hidden md:table-cell">Price</th>
+                                    <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-[0.2em] text-center">Position</th>
                                     <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-[0.2em] text-center">Status</th>
                                     <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-[0.2em] text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="bouquet-table-body" class="divide-y divide-gray-50">
-                                ${state.bouquets.length === 0 ? `
+                            <tbody class="divide-y divide-gray-50">
+                                ${sorted.length === 0 ? `
                                     <tr><td colspan="5" class="p-12 text-center text-gray-400 font-light text-lg">No inventory found. Click 'New Design' to publish first piece.</td></tr>
-                                ` : state.bouquets.map(b => `
-                                    <tr class="drag-row hover:bg-gray-50/50 transition-colors"
-                                        draggable="true"
-                                        data-id="${b.id}"
-                                        ondragstart="handleRowDragStart(event, '${b.id}')"
-                                        ondragover="handleRowDragOver(event)"
-                                        ondragleave="handleRowDragLeave(event)"
-                                        ondrop="handleRowDrop(event, '${b.id}')"
-                                        ondragend="handleRowDragEnd(event)">
-                                        <td class="p-6 text-gray-300 text-lg select-none">⠿⠿</td>
+                                ` : sorted.map(b => `
+                                    <tr class="hover:bg-gray-50/50 transition-colors">
                                         <td class="p-6 flex items-center gap-6">
                                             <div class="w-16 h-16 rounded-2xl bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
                                                 ${b.images && b.images[0] ? `<img src="${b.images[0]}" class="w-full h-full object-cover" />` : `<div class="w-full h-full flex items-center justify-center text-gray-300">N/A</div>`}
@@ -786,8 +781,12 @@
                                                 ${b.bestseller ? `<span class="text-[9px] bg-[#c8a13a]/10 text-[#9c7a1f] px-3 py-1 rounded-full font-bold uppercase tracking-widest mt-2 inline-block">Signature</span>` : ''}
                                             </div>
                                         </td>
-                                        <td class="p-6 text-sm text-gray-600 hidden md:table-cell font-medium">
-                                            ${b.oldPrice && Number(b.oldPrice) > Number(b.price || 0) ? `<span class="line-through text-gray-400 mr-2">৳${b.oldPrice}</span><span class="text-[#10583f] font-bold">৳${b.price || 0}</span>` : (b.price ? `<span class="text-[#10583f] font-bold">৳${b.price}</span>` : '<span class="text-gray-300">—</span>')}
+                                        <td class="p-6 text-sm hidden md:table-cell font-medium">
+                                            ${b.currentPrice ? `<span class="price-current">৳${b.currentPrice}</span>` : '<span class="text-gray-300">—</span>'}
+                                            ${b.oldPrice ? `<span class="price-old ml-2 text-xs">৳${b.oldPrice}</span>` : ''}
+                                        </td>
+                                        <td class="p-6 text-center">
+                                            <input type="number" value="${b.position !== undefined && b.position !== null && b.position !== '' ? b.position : ''}" placeholder="—" onchange="updatePosition('${b.id}', this.value)" class="w-20 text-center px-2 py-2 bg-gray-50 border border-gray-200 rounded-xl font-bold focus:border-[#10583f]" />
                                         </td>
                                         <td class="p-6 text-center">
                                             <button onclick="toggleVisibility('${b.id}')" class="p-3 rounded-full transition-all text-xs font-bold uppercase tracking-widest ${b.visible ? 'text-[#10583f] bg-[#eaf6f0] hover:bg-[#d7efe3]' : 'text-gray-400 bg-gray-100 hover:bg-gray-200'}">
@@ -807,37 +806,10 @@
             `;
         }
 
-        // Drag-and-drop reordering for the admin inventory table.
-        // Row order in state.bouquets is exactly the display order on the homepage.
-        function handleRowDragStart(e, id) {
-            dragSourceId = id;
-            e.dataTransfer.effectAllowed = 'move';
-            e.currentTarget.classList.add('dragging');
-        }
-        function handleRowDragOver(e) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            e.currentTarget.classList.add('drag-over');
-        }
-        function handleRowDragLeave(e) {
-            e.currentTarget.classList.remove('drag-over');
-        }
-        function handleRowDragEnd(e) {
-            e.currentTarget.classList.remove('dragging');
-            document.querySelectorAll('.drag-row').forEach(el => el.classList.remove('drag-over'));
-        }
-        async function handleRowDrop(e, targetId) {
-            e.preventDefault();
-            e.currentTarget.classList.remove('drag-over');
-            if (!dragSourceId || dragSourceId === targetId) return;
-            const list = [...state.bouquets];
-            const fromIdx = list.findIndex(b => b.id === dragSourceId);
-            const toIdx = list.findIndex(b => b.id === targetId);
-            if (fromIdx === -1 || toIdx === -1) return;
-            const [moved] = list.splice(fromIdx, 1);
-            list.splice(toIdx, 0, moved);
-            state.bouquets = list;
-            dragSourceId = null;
+        // Quick inline position update straight from the inventory table.
+        async function updatePosition(id, value) {
+            const num = value === '' ? '' : Number(value);
+            state.bouquets = state.bouquets.map(b => b.id === id ? { ...b, position: (value === '' || isNaN(num)) ? '' : num } : b);
             await dbSet('tf_bouquets_v3', state.bouquets);
             renderAdminMainSection();
         }
@@ -877,28 +849,28 @@
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div>
-                                <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Bouquet Name <span class="normal-case font-medium text-gray-300">(optional)</span></label>
+                                <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Bouquet Name <span class="normal-case font-normal text-gray-300">(optional)</span></label>
                                 <input id="form-name" type="text" value="${state.formData.name}" oninput="state.formData.name=this.value" class="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#10583f]/20 focus:border-[#10583f] transition-all font-medium text-lg" placeholder="e.g. Royal Rose" />
                             </div>
-                            <div></div>
+                            <div>
+                                <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Position / Sort Order <span class="normal-case font-normal text-gray-300">(optional)</span></label>
+                                <input id="form-position" type="number" value="${state.formData.position}" oninput="state.formData.position=this.value" class="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#10583f]/20 focus:border-[#10583f] transition-all font-medium text-lg" placeholder="e.g. 1 = shows first" />
+                            </div>
                         </div>
 
-                        <div class="bg-[#faf8f4] p-8 rounded-[2rem] border border-gray-100">
-                            <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-6 uppercase">Pricing (৳)</label>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div>
-                                    <label class="block text-xs font-bold tracking-[0.15em] text-gray-400 mb-3 uppercase">Current Price</label>
-                                    <input id="form-price" type="number" min="0" step="1" value="${state.formData.price}" oninput="state.formData.price=this.value" class="w-full px-6 py-5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#10583f]/20 focus:border-[#10583f] transition-all font-bold text-lg" placeholder="e.g. 1200" />
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold tracking-[0.15em] text-gray-400 mb-3 uppercase">Old Price <span class="normal-case font-medium text-gray-300">(optional, shown crossed out)</span></label>
-                                    <input id="form-old-price" type="number" min="0" step="1" value="${state.formData.oldPrice}" oninput="state.formData.oldPrice=this.value" class="w-full px-6 py-5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#10583f]/20 focus:border-[#10583f] transition-all font-medium text-lg" placeholder="e.g. 1600" />
-                                </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div>
+                                <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Old Price <span class="normal-case font-normal text-gray-300">(optional)</span></label>
+                                <input id="form-old-price" type="number" min="0" step="0.01" value="${state.formData.oldPrice}" oninput="state.formData.oldPrice=this.value" class="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#10583f]/20 focus:border-[#10583f] transition-all font-medium text-lg" placeholder="e.g. 1500" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Current / Discount Price</label>
+                                <input id="form-current-price" type="number" min="0" step="0.01" value="${state.formData.currentPrice}" oninput="state.formData.currentPrice=this.value" class="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#10583f]/20 focus:border-[#10583f] transition-all font-medium text-lg" placeholder="e.g. 1199" />
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Description <span class="normal-case font-medium text-gray-300">(optional)</span></label>
+                            <label class="block text-xs font-bold tracking-[0.2em] text-gray-400 mb-3 uppercase">Description <span class="normal-case font-normal text-gray-300">(optional)</span></label>
                             <textarea id="form-desc" oninput="state.formData.description=this.value" rows="4" class="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-[#10583f]/20 focus:border-[#10583f] transition-all resize-none font-medium text-lg leading-relaxed">${state.formData.description}</textarea>
                         </div>
 
@@ -948,10 +920,23 @@
                 e.preventDefault();
                 state.formData.name = document.getElementById('form-name').value;
                 state.formData.description = document.getElementById('form-desc').value;
-                state.formData.price = document.getElementById('form-price').value;
                 state.formData.oldPrice = document.getElementById('form-old-price').value;
+                state.formData.currentPrice = document.getElementById('form-current-price').value;
+                state.formData.position = document.getElementById('form-position').value;
                 state.formData.bestseller = document.getElementById('form-bestseller').checked;
                 state.formData.visible = document.getElementById('form-visible').checked;
+
+                // Title/description are optional — publish regardless of whether they're filled in.
+                // If no position was chosen, place the new item at the end of the current order.
+                if (state.formData.position === '' || state.formData.position === null || isNaN(Number(state.formData.position))) {
+                    const existingPositions = state.bouquets
+                        .filter(b => state.editingId ? b.id !== state.editingId : true)
+                        .map(b => (b.position !== '' && b.position !== undefined && b.position !== null && !isNaN(Number(b.position))) ? Number(b.position) : 0);
+                    const maxPos = existingPositions.length ? Math.max(...existingPositions) : 0;
+                    state.formData.position = maxPos + 1;
+                } else {
+                    state.formData.position = Number(state.formData.position);
+                }
 
                 if (state.editingId) {
                     state.bouquets = state.bouquets.map(b => b.id === state.editingId ? { ...state.formData, id: state.editingId } : b);
@@ -967,7 +952,7 @@
         }
 
         function openNewBouquetForm() {
-            state.formData = { name: '', description: '', price: '', oldPrice: '', images: [], bestseller: false, visible: true };
+            state.formData = { name: '', description: '', images: [], bestseller: false, visible: true, oldPrice: '', currentPrice: '', position: '' };
             state.editingId = null;
             state.isAddingBouquet = true;
             renderAdminMainSection();
@@ -987,7 +972,16 @@
         async function editBouquet(id) {
             const b = state.bouquets.find(item => item.id === id);
             if (b) {
-                state.formData = { name: '', description: '', price: '', oldPrice: '', bestseller: false, visible: true, ...b, images: [...(b.images || [])] };
+                state.formData = {
+                    name: b.name || '',
+                    description: b.description || '',
+                    images: [...(b.images || [])],
+                    bestseller: !!b.bestseller,
+                    visible: b.visible !== false,
+                    oldPrice: b.oldPrice !== undefined && b.oldPrice !== null ? b.oldPrice : '',
+                    currentPrice: b.currentPrice !== undefined && b.currentPrice !== null ? b.currentPrice : '',
+                    position: b.position !== undefined && b.position !== null ? b.position : ''
+                };
                 state.editingId = id;
                 state.isAddingBouquet = true;
                 renderAdminMainSection();
@@ -1328,10 +1322,11 @@
 
         // ==========================================
         // 14. SYSTEM BOOTSTRAP (Initialization)
-        // Renders the page instantly with whatever is cached/default, then
-        // silently patches in live data the moment Firebase delivers it —
-        // no loading screen, no artificial delay.
         // ==========================================
+        // The page shell (nav, hero, search, footer) renders instantly on load —
+        // there is no blocking loader screen. Live data (bouquets, reviews,
+        // settings) streams in from Firebase and refreshes the view the moment
+        // each piece arrives, so the site feels instant even on a slow connection.
         function bootstrap() {
             updateView();
 
@@ -1341,7 +1336,15 @@
             }
 
             window.__firebaseOnValue('tf_bouquets_v3', (val) => {
-                state.bouquets = val || [];
+                // Strip any leftover category data from older records — categories
+                // have been fully removed from the site.
+                state.bouquets = (val || []).map(b => {
+                    if (b && Object.prototype.hasOwnProperty.call(b, 'category')) {
+                        const { category, ...rest } = b;
+                        return rest;
+                    }
+                    return b;
+                });
                 updateView();
             });
             window.__firebaseOnValue('tf_settings_v3', (val) => {
