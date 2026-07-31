@@ -145,10 +145,16 @@
         .price-old { color: #a3a3a3; text-decoration: line-through; font-weight: 500; }
         .price-current { color: var(--emerald); font-weight: 800; }
         .discount-pill { background: linear-gradient(135deg, var(--gold-deep), var(--gold)); color: #fff; font-weight: 700; letter-spacing: 0.05em; }
+
+        /* Custom Toast CSS */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
+        .toast { padding: 12px 20px; border-radius: 8px; color: white; font-weight: 500; font-size: 14px; background-color: #10583f; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2); animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
 </head>
 <body class="text-gray-800 antialiased selection:bg-[#10583f] selection:text-white">
 
+    <div id="toast-container"></div>
     <div id="app-root" class="min-h-screen flex flex-col"></div>
     <div id="modal-container"></div>
 
@@ -156,7 +162,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
-        // Your provided Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyAufJDfUyVtIDYkKULmtEtFHY6FJBwI_RQ",
             authDomain: "taktaful.firebaseapp.com",
@@ -190,7 +195,6 @@
             }
         };
 
-        // Ultra-Fast Cache Load (0 lag on Instagram/TikTok click)
         let cached = localStorage.getItem('tatkaful_live_cache');
         window.state = cached ? JSON.parse(cached) : DEFAULT_STATE;
         window.state.searchQuery = '';
@@ -200,7 +204,6 @@
         onValue(dataRef, (snapshot) => {
             const val = snapshot.val();
             if (val) {
-                // Ensure array format for robust rendering
                 if (val.bouquets) {
                     window.state.bouquets = Array.isArray(val.bouquets) ? val.bouquets : Object.values(val.bouquets);
                 }
@@ -209,28 +212,63 @@
                 }
                 if (val.settings) window.state.settings = { ...DEFAULT_STATE.settings, ...val.settings };
                 
-                // Save updated state to local cache for instant future loads
                 localStorage.setItem('tatkaful_live_cache', JSON.stringify({
                     bouquets: window.state.bouquets,
                     reviews: window.state.reviews,
                     settings: window.state.settings
                 }));
 
-                // Re-render immediately on live admin changes without refreshing page
-                if(!window.state.selectedBouquet) { // Don't interrupt if user is viewing a modal
+                if(!window.state.selectedBouquet) {
                     renderHome();
                 } else {
-                    refreshCollection(); // Only refresh background
+                    refreshCollection();
                 }
             }
         }, (err) => {
             console.warn("Firebase live sync fallback to cached data:", err);
         });
 
-        // Initialize view instantly
         window.addEventListener('DOMContentLoaded', () => {
             renderHome();
         });
+
+        window.showToast = function(msg) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = `<svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> ${msg}`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        };
+
+        // NEW: Share Feature added here!
+        window.shareWebsite = async function() {
+            const shareData = {
+                title: 'Tatka Ful - Premium Floral Concepts',
+                text: 'Experience luxury floral masterpieces by Tatka Ful. Order fresh bouquets for your loved ones!',
+                url: 'https://tatkaful.github.io/tatkaful/'
+            };
+            try {
+                if (navigator.share) {
+                    await navigator.share(shareData);
+                } else {
+                    // Fallback to copying clipboard if Web Share API is not supported
+                    const textarea = document.createElement('textarea');
+                    textarea.value = shareData.url;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    window.showToast('Website link copied to clipboard!');
+                }
+            } catch (err) {
+                console.error('Error sharing:', err);
+            }
+        };
 
         window.formatWhatsApp = function(number) {
             let formatted = (number || '').replace(/[^0-9]/g, '');
@@ -471,8 +509,15 @@
                     </div>
                 </section>
 
-                <div class="fixed bottom-6 right-6 z-40 flex flex-col gap-4">
-                    <a href="https://wa.me/${window.formatWhatsApp(window.state.settings.whatsapp)}" target="_blank" rel="noreferrer" class="relative w-16 h-16 bg-[#25D366] text-white rounded-full flex items-center justify-center hover:scale-105 transition-transform shadow-[0_10px_30px_rgba(37,211,102,0.4)]">
+                <div class="fixed bottom-6 right-6 z-40 flex flex-col gap-4 items-center">
+                    <!-- Share Button (Highlighted Feature) -->
+                    <button onclick="shareWebsite()" title="Share Website" class="relative w-12 h-12 bg-gradient-to-br from-[#c8a13a] to-[#9c7a1f] text-white rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg border-2 border-white group cursor-pointer">
+                        <span class="absolute inset-0 rounded-full bg-[#c8a13a] opacity-50 animate-pulse"></span>
+                        <svg class="w-5 h-5 relative z-10 group-hover:-rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                    </button>
+
+                    <!-- WhatsApp Button -->
+                    <a href="https://wa.me/${window.formatWhatsApp(window.state.settings.whatsapp)}" target="_blank" rel="noreferrer" title="Chat on WhatsApp" class="relative w-16 h-16 bg-[#25D366] text-white rounded-full flex items-center justify-center hover:scale-105 transition-transform shadow-[0_10px_30px_rgba(37,211,102,0.4)]">
                         <span class="absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-40 animate-ping"></span>
                         <svg class="w-8 h-8 relative z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.713-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.625 1.451 5.436 0 9.851-4.398 9.854-9.807.001-2.621-1.013-5.086-2.86-6.935C16.36 1.913 13.9.894 11.285.894c-5.438 0-9.854 4.398-9.858 9.808 0 2.037.533 4.024 1.547 5.765l-.99 3.613 3.73-.973h.001a9.78 9.78 0 0 0 4.332 1.048zM18.15 14.86c-.337-.168-1.996-.983-2.305-1.096-.309-.113-.534-.168-.758.168-.225.337-.871 1.096-1.067 1.32-.197.225-.393.253-.73.084-.337-.168-1.42-.524-2.707-1.671-1.002-.894-1.679-2.001-1.875-2.337-.197-.337-.021-.519.147-.687.152-.151.337-.393.506-.59.168-.197.225-.337.337-.562.113-.225.056-.422-.028-.59-.084-.168-.758-1.825-1.039-2.503-.274-.662-.553-.573-.758-.583-.197-.01-.422-.012-.647-.012-.225 0-.59.084-.9.422-.309.337-1.18 1.151-1.18 2.808 0 1.657 1.208 3.257 1.377 3.482.168.225 2.378 3.63 5.76 5.087.805.347 1.433.554 1.923.71.808.257 1.545.221 2.127.135.649-.096 1.996-.815 2.277-1.601.281-.787.281-1.461.197-1.601-.084-.14-.309-.225-.647-.393z"/></svg>
                     </a>
@@ -503,7 +548,7 @@
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                                 </a>` : ''}
                                 <a href="tel:${window.state.settings.phone}" class="social-badge">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
                                 </a>
                             </div>
                         </div>
@@ -572,16 +617,13 @@
 
                             <div class="mt-auto space-y-4">
                                 <div class="flex items-center gap-3 text-sm text-gray-500 mb-8 font-medium bg-gray-50 p-4 rounded-xl">
-                                    <svg class="w-5 h-5 text-[#10583f] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                    <span>100% Fresh premium quality guaranteed. Handcrafted.</span>
+                                    <svg class="w-5 h-5 text-[#10583f]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    Delivery usually takes 2-4 hours.
                                 </div>
-                                <button onclick="orderViaWhatsApp('${bouquet.id}')" class="w-full premium-btn text-white py-5 rounded-full flex items-center justify-center gap-3 text-sm font-bold uppercase tracking-[0.2em] shadow-lg hover:shadow-xl transition-all">
+                                <button onclick="orderViaWhatsApp('${bouquet.id}', event)" class="w-full bg-[#0b2e22] hover:bg-[#10583f] text-white py-5 rounded-full uppercase tracking-widest text-sm font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all flex justify-center items-center gap-3">
                                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.713-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.625 1.451 5.436 0 9.851-4.398 9.854-9.807.001-2.621-1.013-5.086-2.86-6.935C16.36 1.913 13.9.894 11.285.894c-5.438 0-9.854 4.398-9.858 9.808 0 2.037.533 4.024 1.547 5.765l-.99 3.613 3.73-.973h.001a9.78 9.78 0 0 0 4.332 1.048z"/></svg>
-                                    Order via WhatsApp
+                                    Order on WhatsApp
                                 </button>
-                                <a href="tel:${window.state.settings.phone}" class="w-full bg-white text-gray-900 py-5 rounded-full flex items-center justify-center gap-3 text-sm font-bold uppercase tracking-[0.2em] border border-gray-200 hover:bg-gray-50 transition-colors text-center block">
-                                    Call Studio
-                                </a>
                             </div>
                         </div>
                     </div>
