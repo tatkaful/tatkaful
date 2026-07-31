@@ -267,10 +267,10 @@
             const oldSize = size === 'modal' ? 'text-lg' : 'text-sm';
             
             return `
-                <div class="flex items-center flex-wrap gap-2 ${size === 'modal' ? 'mb-6' : 'mb-1'}">
-                    ${hasCurrent ? `<span class="font-serif ${currentSize} text-[#0b2e22] font-bold leading-none tracking-tight">৳${window.formatMoney(current)}</span>` : ''}
-                    ${hasOld ? `<span class="${oldSize} text-gray-400 line-through font-medium leading-none">৳${window.formatMoney(old)}</span>` : ''}
-                    ${discountPct > 0 ? `<span class="ml-1 bg-[#c8a13a]/10 text-[#9c7a1f] border border-[#c8a13a]/20 text-[10px] sm:text-[11px] font-bold px-2 py-1 rounded-md uppercase tracking-wider shadow-sm">Save ${discountPct}%</span>` : ''}
+                <div class="flex items-center flex-wrap gap-1.5 sm:gap-2 ${size === 'modal' ? 'mb-6' : 'mb-1'}">
+                    ${hasCurrent ? `<span class="font-serif ${currentSize} text-[#0b2e22] font-bold leading-none tracking-tight tabular-nums">৳${window.formatMoney(current)}</span>` : ''}
+                    ${hasOld ? `<span class="${oldSize} text-gray-400 line-through font-medium leading-none tabular-nums">৳${window.formatMoney(old)}</span>` : ''}
+                    ${discountPct > 0 ? `<span class="ml-auto bg-[#c8a13a]/10 text-[#9c7a1f] border border-[#c8a13a]/30 text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-widest shadow-sm">Save ${discountPct}%</span>` : ''}
                 </div>
             `;
         };
@@ -337,12 +337,14 @@
                                     </div>
                                 ` : ''}
                             </div>
-                            <div class="px-1.5 pb-1 flex flex-col">
-                                <h3 class="text-sm sm:text-lg font-serif text-gray-900 mb-1.5 group-hover:text-[#10583f] transition-colors leading-snug line-clamp-1">${bouquet.name || 'Fresh Bouquet'}</h3>
-                                ${window.renderPriceHTML(bouquet, 'card')}
-                                <button onclick="orderViaWhatsApp('${bouquet.id}', event)" class="mt-3 sm:mt-4 w-full bg-[#0b2e22] hover:bg-[#10583f] text-white text-[10px] sm:text-xs font-bold uppercase tracking-[0.15em] py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg">
+                            <div class="px-1.5 pb-1 flex flex-col flex-1 justify-between">
+                                <div>
+                                    <h3 class="text-sm sm:text-lg font-serif text-gray-900 mb-1 group-hover:text-[#10583f] transition-colors leading-snug line-clamp-1">${bouquet.name || 'Fresh Bouquet'}</h3>
+                                    ${window.renderPriceHTML(bouquet, 'card')}
+                                </div>
+                                <button onclick="orderViaWhatsApp('${bouquet.id}', event)" class="mt-2.5 w-full bg-[#0b2e22] hover:bg-[#10583f] text-white text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.15em] py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md hover:shadow-lg">
                                     <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.713-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.625 1.451 5.436 0 9.851-4.398 9.854-9.807.001-2.621-1.013-5.086-2.86-6.935C16.36 1.913 13.9.894 11.285.894c-5.438 0-9.854 4.398-9.858 9.808 0 2.037.533 4.024 1.547 5.765l-.99 3.613 3.73-.973h.001a9.78 9.78 0 0 0 4.332 1.048z"/></svg>
-                                    Order Now
+                                    Order
                                 </button>
                             </div>
                         </div>
@@ -422,6 +424,50 @@
                 <section class="px-6 py-12 sm:py-20 max-w-7xl mx-auto min-h-[50vh]">
                     <div id="bouquet-grid-wrapper">
                         ${window.renderBouquetGridHTML(window.computeFilteredBouquets())}
+                    </div>
+                </section>
+
+                <!-- Fake Reviews Section -->
+                <section class="py-20 bg-[#faf8f4] border-t border-[#c8a13a]/10 relative overflow-hidden">
+                    <div class="orb w-[20rem] h-[20rem] bg-[#c8a13a]/5 -top-10 -left-10"></div>
+                    <div class="max-w-7xl mx-auto px-6 text-center relative z-10">
+                        <span class="eyebrow-flourish mb-4">Client Love</span>
+                        <h2 class="text-3xl md:text-5xl font-serif text-gray-900 mb-12">Words from our Patrons</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 text-left">
+                            <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 hover:shadow-xl transition-shadow relative">
+                                <div class="text-[#c8a13a] mb-5 flex gap-1">${window.starGlyphs(5)}</div>
+                                <p class="text-gray-600 font-light mb-8 italic leading-relaxed">"Absolutely breathtaking! The attention to detail and the freshness of the blooms were beyond my expectations. A true luxury experience from start to finish."</p>
+                                <div class="flex items-center gap-4 mt-auto">
+                                    <div class="w-12 h-12 bg-gray-200 rounded-full overflow-hidden border border-gray-100"><img src="https://i.pravatar.cc/150?img=47" class="w-full h-full object-cover"></div>
+                                    <div>
+                                        <h4 class="font-bold text-gray-900 text-sm">Aisha Rahman</h4>
+                                        <p class="text-xs text-gray-500">Gulshan, Dhaka</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 hover:shadow-xl transition-shadow relative">
+                                <div class="text-[#c8a13a] mb-5 flex gap-1">${window.starGlyphs(5)}</div>
+                                <p class="text-gray-600 font-light mb-8 italic leading-relaxed">"I ordered a signature bouquet for my anniversary, and it was a masterpiece. The packaging, the premium feel, and the delivery were absolutely flawless."</p>
+                                <div class="flex items-center gap-4 mt-auto">
+                                    <div class="w-12 h-12 bg-gray-200 rounded-full overflow-hidden border border-gray-100"><img src="https://i.pravatar.cc/150?img=12" class="w-full h-full object-cover"></div>
+                                    <div>
+                                        <h4 class="font-bold text-gray-900 text-sm">Fahim Ahmed</h4>
+                                        <p class="text-xs text-gray-500">Banani, Dhaka</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 hover:shadow-xl transition-shadow relative">
+                                <div class="text-[#c8a13a] mb-5 flex gap-1">${window.starGlyphs(5)}</div>
+                                <p class="text-gray-600 font-light mb-8 italic leading-relaxed">"Tatka Ful is my go-to for all floral needs. Their designs are so unique and elegant, and the flowers stay perfectly fresh for days. Highly recommended!"</p>
+                                <div class="flex items-center gap-4 mt-auto">
+                                    <div class="w-12 h-12 bg-gray-200 rounded-full overflow-hidden border border-gray-100"><img src="https://i.pravatar.cc/150?img=32" class="w-full h-full object-cover"></div>
+                                    <div>
+                                        <h4 class="font-bold text-gray-900 text-sm">Nusrat Jahan</h4>
+                                        <p class="text-xs text-gray-500">Dhanmondi, Dhaka</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
