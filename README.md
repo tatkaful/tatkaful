@@ -246,21 +246,31 @@
             return out;
         };
 
+        window.formatMoney = function(amount) {
+            return new Intl.NumberFormat('en-IN').format(amount);
+        };
+
         window.renderPriceHTML = function(bouquet, size = 'card') {
-            const hasOld = bouquet.oldPrice !== undefined && bouquet.oldPrice !== null && bouquet.oldPrice !== '';
-            const hasCurrent = bouquet.currentPrice !== undefined && bouquet.currentPrice !== null && bouquet.currentPrice !== '';
+            const current = Number(bouquet.currentPrice) || 0;
+            const old = Number(bouquet.oldPrice) || 0;
+            const hasOld = old > current;
+            const hasCurrent = current > 0;
+            
             if (!hasOld && !hasCurrent) return '';
+            
             let discountPct = null;
-            if (hasOld && hasCurrent && Number(bouquet.oldPrice) > Number(bouquet.currentPrice) && Number(bouquet.oldPrice) > 0) {
-                discountPct = Math.round((1 - (Number(bouquet.currentPrice) / Number(bouquet.oldPrice))) * 100);
+            if (hasOld && hasCurrent) {
+                discountPct = Math.round((1 - (current / old)) * 100);
             }
-            const currentSize = size === 'modal' ? 'text-3xl md:text-4xl' : 'text-lg sm:text-xl';
-            const oldSize = size === 'modal' ? 'text-base' : 'text-xs sm:text-sm';
+            
+            const currentSize = size === 'modal' ? 'text-3xl md:text-4xl' : 'text-[1.1rem] sm:text-[1.35rem]';
+            const oldSize = size === 'modal' ? 'text-lg' : 'text-sm';
+            
             return `
-                <div class="flex items-center flex-wrap gap-2 sm:gap-3 ${size === 'modal' ? 'mb-6' : 'mb-2 sm:mb-3'}">
-                    ${hasCurrent ? `<span class="price-current font-serif ${currentSize}">৳${bouquet.currentPrice}</span>` : ''}
-                    ${hasOld ? `<span class="price-old ${oldSize}">৳${bouquet.oldPrice}</span>` : ''}
-                    ${discountPct && discountPct > 0 ? `<span class="discount-pill text-[9px] sm:text-[10px] px-2 py-1 rounded-full uppercase">${discountPct}% Off</span>` : ''}
+                <div class="flex items-center flex-wrap gap-2 ${size === 'modal' ? 'mb-6' : 'mb-1'}">
+                    ${hasCurrent ? `<span class="font-serif ${currentSize} text-[#0b2e22] font-bold leading-none tracking-tight">৳${window.formatMoney(current)}</span>` : ''}
+                    ${hasOld ? `<span class="${oldSize} text-gray-400 line-through font-medium leading-none">৳${window.formatMoney(old)}</span>` : ''}
+                    ${discountPct > 0 ? `<span class="ml-1 bg-[#c8a13a]/10 text-[#9c7a1f] border border-[#c8a13a]/20 text-[10px] sm:text-[11px] font-bold px-2 py-1 rounded-md uppercase tracking-wider shadow-sm">Save ${discountPct}%</span>` : ''}
                 </div>
             `;
         };
@@ -311,30 +321,28 @@
                 `;
             }
             return `
-                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 sm:gap-x-6 md:gap-x-10 gap-y-8 sm:gap-y-10 md:gap-y-16">
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 sm:gap-x-6 md:gap-x-8 gap-y-6 sm:gap-y-10 md:gap-y-12">
                     ${displayedBouquets.map((bouquet, index) => `
-                        <div class="group cursor-pointer flex flex-col animate-fade-up" style="animation-delay: ${Math.min(index, 8) * 0.04}s" onclick="openDetailModal('${bouquet.id}')">
-                            <div class="relative aspect-[4/5] rounded-[1.25rem] sm:rounded-[2rem] overflow-hidden luxury-card mb-3 sm:mb-6 bg-gray-50">
+                        <div class="group cursor-pointer flex flex-col animate-fade-up bg-white rounded-[1.5rem] p-2.5 sm:p-3 shadow-sm hover:shadow-2xl transition-all duration-400 border border-gray-100 hover:border-[#c8a13a]/30" style="animation-delay: ${Math.min(index, 8) * 0.04}s" onclick="openDetailModal('${bouquet.id}')">
+                            <div class="relative aspect-[4/5] rounded-[1rem] overflow-hidden mb-3 sm:mb-4 bg-gray-50">
                                 ${bouquet.images && bouquet.images.length > 0 ? `
-                                    <img src="${bouquet.images[0]}" alt="${bouquet.name || 'Bouquet'}" loading="lazy" class="w-full h-full object-cover transition-transform duration-[1.2s] group-hover:scale-105" onerror="this.src='https://placehold.co/800x1000/10583f/ffffff?text=Tatka+Ful'" />
+                                    <img src="${bouquet.images[0]}" alt="${bouquet.name || 'Bouquet'}" loading="lazy" class="w-full h-full object-cover transition-transform duration-[1.2s] group-hover:scale-110" onerror="this.src='https://placehold.co/800x1000/10583f/ffffff?text=Tatka+Ful'" />
                                 ` : `
                                     <div class="w-full h-full flex items-center justify-center text-gray-300 text-xs">No Image</div>
                                 `}
-                                <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                <div class="absolute inset-0 bg-gradient-to-t from-[#0b2e22]/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                                 ${bouquet.bestseller ? `
-                                    <div class="absolute top-2 left-2 sm:top-4 sm:left-4 bg-white/95 backdrop-blur-md text-[#9c7a1f] text-[8px] sm:text-[10px] font-bold uppercase tracking-[0.15em] px-2.5 sm:px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-md">
+                                    <div class="absolute top-2 left-2 sm:top-3 sm:left-3 bg-white/95 backdrop-blur-md text-[#9c7a1f] text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.15em] px-2.5 py-1.5 rounded-full flex items-center gap-1.5 shadow-md">
                                         <span class="w-1.5 h-1.5 bg-[#c8a13a] rounded-full"></span> Signature
                                     </div>
                                 ` : ''}
                             </div>
-                            <div class="px-1 sm:px-2 flex flex-col flex-1">
-                                <h3 class="text-base sm:text-2xl font-serif text-gray-900 mb-1.5 group-hover:text-[#10583f] transition-colors leading-snug">${bouquet.name || 'Fresh Bouquet'}</h3>
+                            <div class="px-1.5 pb-1 flex flex-col">
+                                <h3 class="text-sm sm:text-lg font-serif text-gray-900 mb-1.5 group-hover:text-[#10583f] transition-colors leading-snug line-clamp-1">${bouquet.name || 'Fresh Bouquet'}</h3>
                                 ${window.renderPriceHTML(bouquet, 'card')}
-                                ${bouquet.description ? `<p class="hidden sm:block text-gray-500 text-sm line-clamp-2 leading-relaxed font-light mb-4">${bouquet.description}</p>` : `<div class="hidden sm:block mb-4"></div>`}
-                                <button onclick="orderViaWhatsApp('${bouquet.id}', event)" class="mt-auto premium-btn text-white text-[10px] sm:text-xs font-bold uppercase tracking-[0.12em] sm:tracking-[0.2em] py-2.5 sm:py-3.5 rounded-full flex items-center justify-center gap-1.5 sm:gap-2">
+                                <button onclick="orderViaWhatsApp('${bouquet.id}', event)" class="mt-3 sm:mt-4 w-full bg-[#0b2e22] hover:bg-[#10583f] text-white text-[10px] sm:text-xs font-bold uppercase tracking-[0.15em] py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg">
                                     <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.713-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.625 1.451 5.436 0 9.851-4.398 9.854-9.807.001-2.621-1.013-5.086-2.86-6.935C16.36 1.913 13.9.894 11.285.894c-5.438 0-9.854 4.398-9.858 9.808 0 2.037.533 4.024 1.547 5.765l-.99 3.613 3.73-.973h.001a9.78 9.78 0 0 0 4.332 1.048z"/></svg>
-                                    <span class="sm:hidden">Order</span>
-                                    <span class="hidden sm:inline">Order Now</span>
+                                    Order Now
                                 </button>
                             </div>
                         </div>
